@@ -29,29 +29,30 @@ function M.setup(opts)
 
   config = vim.tbl_deep_extend("force", defaults, opts)
 
-  -- Create commands IMMEDIATELY - before any I/O operations
-  -- Commands should always be created, even if binary isn't found yet
-  local function create_command(name, func, desc)
-    local ok, err = pcall(vim.api.nvim_create_user_command, name, func, { desc = desc })
-    if not ok and not err:match("already exists") then
-      vim.notify("NaviReader: Failed to create command " .. name .. ": " .. err, vim.log.levels.ERROR)
+  -- Create commands - do this synchronously to ensure they exist
+  -- Check if commands already exist to avoid errors
+  if vim.fn.exists(":NaviReaderScan") == 0 then
+    vim.api.nvim_create_user_command("NaviReaderScan", function() M.scan() end,
+      { desc = "Scan Zettelkasten for RSS feed URLs" })
+  end
+
+  if vim.fn.exists(":NaviReaderFetch") == 0 then
+    vim.api.nvim_create_user_command("NaviReaderFetch", function() M.fetch() end,
+      { desc = "Fetch RSS articles from all feeds" })
+  end
+
+  if vim.fn.exists(":NaviReaderUpdate") == 0 then
+    vim.api.nvim_create_user_command("NaviReaderUpdate", function() M.fetch(true) end,
+      { desc = "Rescan Zettelkasten and fetch new articles" })
+  end
+
+  -- Defer Telescope extension loading to avoid conflicts
+  vim.defer_fn(function()
+    local ok, telescope = pcall(require, 'telescope')
+    if ok then
+      pcall(telescope.load_extension, telescope, 'navireader')
     end
-  end
-
-  create_command("NaviReaderScan", function() M.scan() end,
-    "Scan Zettelkasten for RSS feed URLs")
-
-  create_command("NaviReaderFetch", function() M.fetch() end,
-    "Fetch RSS articles from all feeds")
-
-  create_command("NaviReaderUpdate", function() M.fetch(true) end,
-    "Rescan Zettelkasten and fetch new articles")
-
-  -- Load Telescope extension if available (this is safe, no I/O)
-  local ok, telescope = pcall(require, 'telescope')
-  if ok then
-    telescope.load_extension('navireader')
-  end
+  end, 0)
 
   -- Defer all I/O operations to when they're actually needed
   -- This avoids blocking during setup
@@ -157,6 +158,20 @@ end
 
 function M.get_config()
   return config
+end
+
+-- Debug function to check if commands exist
+function M.debug()
+  print("NaviReader Debug Info:")
+  print("  Setup complete: " .. tostring(is_setup))
+  print("  Commands exist:")
+  print("    :NaviReaderScan - " .. vim.fn.exists(":NaviReaderScan"))
+  print("    :NaviReaderFetch - " .. vim.fn.exists(":NaviReaderFetch"))
+  print("    :NaviReaderUpdate - " .. vim.fn.exists(":NaviReaderUpdate"))
+  print("  Config:")
+  print("    navireader_path: " .. tostring(config.navireader_path))
+  print("    zet_path: " .. tostring(config.zet_path))
+  print("    navireader_bin: " .. tostring(config.navireader_bin))
 end
 
 return M
