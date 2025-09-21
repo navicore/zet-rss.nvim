@@ -20,13 +20,13 @@ A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelk
   "navicore/navireader",
   dependencies = { "nvim-telescope/telescope.nvim" },
   build = "make install",  -- Automatically builds Rust binary
+  lazy = false,  -- Load immediately to register commands
   config = function()
     require("navireader").setup({
       -- Optional: override zet path (auto-detects ~/git/USERNAME/zet by default)
       -- zet_path = vim.fn.expand("~/my-custom-path/zet"),
     })
   end,
-  cmd = { "NaviReaderScan", "NaviReaderFetch", "NaviReaderUpdate" },  -- Lazy load on commands
 }
 ```
 

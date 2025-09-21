@@ -26,17 +26,14 @@ function M.setup(opts)
     end
 
     if vim.fn.executable(binary_path) == 1 then
-      config.navireader_bin = vim.fn.expand(binary_path)
+      config.navireader_bin = binary_path
     else
       -- Fallback to system PATH
       local handle = io.popen("which navireader 2>/dev/null")
-      local result = handle:read("*a")
-      handle:close()
-      config.navireader_bin = result:gsub("\n", "")
-
-      if config.navireader_bin == "" then
-        vim.notify("NaviReader: Binary not found. Please ensure it's built.", vim.log.levels.ERROR)
-        return
+      if handle then
+        local result = handle:read("*a")
+        handle:close()
+        config.navireader_bin = result:gsub("\n", "")
       end
     end
   end
