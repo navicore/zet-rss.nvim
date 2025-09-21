@@ -110,8 +110,18 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
         }
         ViewerMode::CreateNote => {
             // Create the note and write path to temp file
-            if let Ok(note_path) = create_note_from_article(&article) {
-                let _ = std::fs::write("/tmp/navireader_note_path.txt", &note_path);
+            match create_note_from_article(&article) {
+                Ok(note_path) => {
+                    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+                        let _ = writeln!(file, "Note created successfully: {}", note_path);
+                    }
+                    let _ = std::fs::write("/tmp/navireader_note_path.txt", &note_path);
+                }
+                Err(e) => {
+                    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+                        let _ = writeln!(file, "Failed to create note: {}", e);
+                    }
+                }
             }
             2
         }
@@ -337,6 +347,10 @@ fn open_in_browser(url: &str) {
 }
 
 fn create_note_from_article(article: &crate::models::FeedItem) -> Result<String> {
+    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+        let _ = writeln!(file, "create_note_from_article called");
+    }
+
     let username = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "user".to_string());
@@ -346,6 +360,10 @@ fn create_note_from_article(article: &crate::models::FeedItem) -> Result<String>
         .unwrap_or_else(|_| format!("/Users/{}", username));
 
     let zet_path = format!("{}/git/{}/zet", home, username);
+
+    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+        let _ = writeln!(file, "Zet path: {}", zet_path);
+    }
     let date = chrono::Local::now().format("%Y%m%d%H%M").to_string();
     let safe_title = article.title
         .chars()
@@ -378,9 +396,19 @@ fn create_note_from_article(article: &crate::models::FeedItem) -> Result<String>
     content.push_str("\n\n## Notes\n\n");
 
     // Create directory if it doesn't exist
+    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+        let _ = writeln!(file, "Creating directory: {}", zet_path);
+    }
     std::fs::create_dir_all(&zet_path)?;
 
+    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+        let _ = writeln!(file, "Writing file: {}", filename);
+    }
     std::fs::write(&filename, content)?;
+
+    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+        let _ = writeln!(file, "File written successfully: {}", filename);
+    }
 
     Ok(filename)
 }
