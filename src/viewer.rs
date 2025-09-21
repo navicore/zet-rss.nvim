@@ -298,20 +298,37 @@ fn open_in_browser(url: &str) {
         let _ = writeln!(file, "open_in_browser called with URL: {}", url);
     }
 
-    let open_cmd = if cfg!(target_os = "macos") {
-        "open"
-    } else if cfg!(target_os = "linux") {
-        "xdg-open"
+    // When running inside Neovim terminal, we need to ensure the browser opens
+    // in the parent session, not the terminal subprocess
+    if std::env::var("NVIM").is_ok() {
+        // Use shell command to ensure it runs in the right context
+        let result = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!("open '{}'", url))
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+
+        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+            let _ = writeln!(file, "Browser open (via shell) result: {:?}", result);
+        }
     } else {
-        return;
-    };
+        // Normal execution outside of Neovim
+        let open_cmd = if cfg!(target_os = "macos") {
+            "open"
+        } else if cfg!(target_os = "linux") {
+            "xdg-open"
+        } else {
+            return;
+        };
 
-    let result = std::process::Command::new(open_cmd)
-        .arg(url)
-        .spawn();
+        let result = std::process::Command::new(open_cmd)
+            .arg(url)
+            .spawn();
 
-    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
-        let _ = writeln!(file, "Browser spawn result: {:?}", result);
+        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+            let _ = writeln!(file, "Browser open result: {:?}", result);
+        }
     }
 }
 
