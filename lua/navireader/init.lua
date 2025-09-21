@@ -35,36 +35,57 @@ function M.setup(opts)
     end
   end
 
-  -- Create commands
-  vim.api.nvim_create_user_command("NaviReaderScan", function() M.scan() end,
-    { desc = "Scan Zettelkasten for RSS feed URLs" })
+  -- Create main command with subcommands
+  vim.api.nvim_create_user_command("NaviReader", function(opts)
+    local subcommand = opts.args
 
-  vim.api.nvim_create_user_command("NaviReaderFetch", function() M.fetch() end,
-    { desc = "Fetch RSS articles from all feeds" })
-
-  vim.api.nvim_create_user_command("NaviReaderUpdate", function() M.fetch(true) end,
-    { desc = "Rescan Zettelkasten and fetch new articles" })
-
-  -- Convenience commands for Telescope functions
-  vim.api.nvim_create_user_command("NaviReader", function()
-    require('telescope').extensions.navireader.navireader()
-  end, { desc = "Browse unread RSS articles" })
-
-  vim.api.nvim_create_user_command("NaviReaderAll", function()
-    require('telescope').extensions.navireader.all()
-  end, { desc = "Browse all RSS articles (including read)" })
-
-  vim.api.nvim_create_user_command("NaviReaderSearch", function()
-    require('telescope').extensions.navireader.search()
-  end, { desc = "Search RSS articles" })
-
-  vim.api.nvim_create_user_command("NaviReaderStarred", function()
-    require('telescope').extensions.navireader.starred()
-  end, { desc = "Browse starred RSS articles" })
-
-  vim.api.nvim_create_user_command("NaviReaderClearCache", function()
-    M.clear_cache()
-  end, { desc = "Clear all cached RSS articles and data" })
+    if subcommand == "" or subcommand == "browse" then
+      -- Default action: browse unread articles
+      require('telescope').extensions.navireader.navireader()
+    elseif subcommand == "scan" then
+      M.scan()
+    elseif subcommand == "fetch" then
+      M.fetch()
+    elseif subcommand == "update" then
+      M.fetch(true)
+    elseif subcommand == "all" then
+      require('telescope').extensions.navireader.all()
+    elseif subcommand == "search" then
+      require('telescope').extensions.navireader.search()
+    elseif subcommand == "starred" then
+      require('telescope').extensions.navireader.starred()
+    elseif subcommand == "clear-cache" then
+      M.clear_cache()
+    else
+      vim.notify("Unknown subcommand: " .. subcommand .. "\n\nAvailable subcommands:\n" ..
+        "  browse (default) - Browse unread articles\n" ..
+        "  all              - Browse all articles (including read)\n" ..
+        "  search           - Search articles\n" ..
+        "  starred          - Browse starred articles\n" ..
+        "  scan             - Scan Zettelkasten for RSS feeds\n" ..
+        "  fetch            - Fetch RSS articles\n" ..
+        "  update           - Rescan and fetch new articles\n" ..
+        "  clear-cache      - Clear all cached data",
+        vim.log.levels.ERROR)
+    end
+  end, {
+    nargs = "?",
+    complete = function(arg_lead, cmd_line, cursor_pos)
+      return vim.tbl_filter(function(item)
+        return vim.startswith(item, arg_lead)
+      end, {
+        "browse",
+        "all",
+        "search",
+        "starred",
+        "scan",
+        "fetch",
+        "update",
+        "clear-cache"
+      })
+    end,
+    desc = "NaviReader RSS reader commands"
+  })
 
     -- Don't load Telescope extension in setup - let user do it manually
     -- This might be causing conflicts with markdown files
