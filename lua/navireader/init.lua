@@ -81,9 +81,11 @@ function M.scan()
     return
   end
 
-  -- Set environment variable for data directory
-  local env = "NAVIREADER_DATA_DIR=" .. vim.fn.shellescape(config.navireader_path)
-  local cmd = string.format("%s %s scan --path %s", env, config.navireader_bin, vim.fn.shellescape(config.zet_path))
+  -- Use env command to set environment variable
+  local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s scan --path %s",
+    vim.fn.shellescape(config.navireader_path),
+    config.navireader_bin,
+    vim.fn.shellescape(config.zet_path))
 
   vim.notify("Scanning for RSS feeds...", vim.log.levels.INFO)
 
@@ -111,9 +113,10 @@ function M.fetch(update)
     return
   end
 
-  -- Set environment variable for data directory
-  local env = "NAVIREADER_DATA_DIR=" .. vim.fn.shellescape(config.navireader_path)
-  local cmd = env .. " " .. config.navireader_bin .. " fetch"
+  -- Use env command to set environment variable
+  local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s fetch",
+    vim.fn.shellescape(config.navireader_path),
+    config.navireader_bin)
   if update then
     cmd = cmd .. " --update"
   end

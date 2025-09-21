@@ -125,10 +125,12 @@ local function navireader_picker(opts)
         local navireader = require("navireader")
         local config = navireader.get_config()
 
-        -- Build command with environment variable
+        -- Build command with environment variable using env command
         local binary = config.navireader_bin or "navireader"
-        local env = "NAVIREADER_DATA_DIR=" .. vim.fn.shellescape(config.navireader_path)
-        local cmd = string.format("%s %s view --id %s", env, binary, vim.fn.shellescape(article.id))
+        local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s view --id %s",
+          vim.fn.shellescape(config.navireader_path),
+          binary,
+          vim.fn.shellescape(article.id))
 
         -- Save current window before closing telescope
         local original_win = vim.api.nvim_get_current_win()
