@@ -11,8 +11,20 @@ pub struct TextCache {
 
 impl TextCache {
     pub fn new() -> Result<Self> {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        let base_dir = PathBuf::from(home).join(".navireader");
+        // Check if running from Neovim and use its data directory
+        let base_dir = if let Ok(nvim_data) = std::env::var("NAVIREADER_DATA_DIR") {
+            // If Neovim sets this env var, use it
+            PathBuf::from(nvim_data)
+        } else {
+            // Otherwise use XDG data directory standard
+            if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
+                PathBuf::from(xdg_data).join("navireader")
+            } else {
+                // Fallback to ~/.local/share/navireader (XDG default)
+                let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+                PathBuf::from(home).join(".local/share/navireader")
+            }
+        };
 
         fs::create_dir_all(&base_dir)?;
         fs::create_dir_all(base_dir.join("articles"))?;

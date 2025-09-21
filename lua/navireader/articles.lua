@@ -46,7 +46,10 @@ local function parse_frontmatter(content)
 end
 
 -- Get all articles from the cache directory
-function M.get_articles(limit)
+function M.get_articles(limit, options)
+  options = options or {}
+  local show_read = options.show_read  -- Default to false (don't show read items)
+
   local navireader = require("navireader")
   local config = navireader.get_config()
   local articles_dir = config.navireader_path .. "/articles"
@@ -54,23 +57,47 @@ function M.get_articles(limit)
   local articles = {}
 
   -- Get all .md files
-  local handle = io.popen("ls -t " .. vim.fn.shellescape(articles_dir) .. "/*.md 2>/dev/null")
+  local handle = io.popen("ls " .. vim.fn.shellescape(articles_dir) .. "/*.md 2>/dev/null")
   local result = handle:read("*a")
   handle:close()
 
   local files = vim.split(result, "\n")
 
-  for i, filepath in ipairs(files) do
-    if limit and i > limit then
-      break
-    end
-
+  for _, filepath in ipairs(files) do
     if filepath ~= "" and vim.fn.filereadable(filepath) == 1 then
       local content = vim.fn.readfile(filepath)
       local article = parse_frontmatter(table.concat(content, "\n"))
       article.filepath = filepath
-      table.insert(articles, article)
+
+      -- Filter out read articles if requested
+      if show_read or not article.read then
+        table.insert(articles, article)
+      end
     end
+  end
+
+  -- Sort by date (newest first)
+  table.sort(articles, function(a, b)
+    -- Handle missing dates
+    if not a.published and not b.published then
+      return false
+    elseif not a.published then
+      return false
+    elseif not b.published then
+      return true
+    end
+
+    -- Compare dates (newer first)
+    return a.published > b.published
+  end)
+
+  -- Apply limit after filtering and sorting
+  if limit and #articles > limit then
+    local limited = {}
+    for i = 1, limit do
+      limited[i] = articles[i]
+    end
+    return limited
   end
 
   return articles

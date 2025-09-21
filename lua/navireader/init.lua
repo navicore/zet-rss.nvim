@@ -1,7 +1,7 @@
 local M = {}
 
 local config = {
-  navireader_path = vim.fn.expand("~") .. "/.navireader",
+  navireader_path = vim.fn.stdpath("data") .. "/navireader",
   zet_path = nil,
   navireader_bin = nil,
 }
@@ -14,7 +14,7 @@ function M.setup(opts)
     -- Get username and set default zet path
     local username = vim.fn.system("whoami"):gsub("\n", "")
     local defaults = {
-      navireader_path = vim.fn.expand("~") .. "/.navireader",
+      navireader_path = vim.fn.stdpath("data") .. "/navireader",
       zet_path = vim.fn.expand("~/git/" .. username .. "/zet"),
       navireader_bin = nil,
     }
@@ -45,6 +45,23 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("NaviReaderUpdate", function() M.fetch(true) end,
     { desc = "Rescan Zettelkasten and fetch new articles" })
 
+  -- Convenience commands for Telescope functions
+  vim.api.nvim_create_user_command("NaviReader", function()
+    require('telescope').extensions.navireader.navireader()
+  end, { desc = "Browse unread RSS articles" })
+
+  vim.api.nvim_create_user_command("NaviReaderAll", function()
+    require('telescope').extensions.navireader.all()
+  end, { desc = "Browse all RSS articles (including read)" })
+
+  vim.api.nvim_create_user_command("NaviReaderSearch", function()
+    require('telescope').extensions.navireader.search()
+  end, { desc = "Search RSS articles" })
+
+  vim.api.nvim_create_user_command("NaviReaderStarred", function()
+    require('telescope').extensions.navireader.starred()
+  end, { desc = "Browse starred RSS articles" })
+
     -- Don't load Telescope extension in setup - let user do it manually
     -- This might be causing conflicts with markdown files
     -- local ok, telescope = pcall(require, 'telescope')
@@ -64,7 +81,9 @@ function M.scan()
     return
   end
 
-  local cmd = string.format("%s scan --path %s", config.navireader_bin, vim.fn.shellescape(config.zet_path))
+  -- Set environment variable for data directory
+  local env = "NAVIREADER_DATA_DIR=" .. vim.fn.shellescape(config.navireader_path)
+  local cmd = string.format("%s %s scan --path %s", env, config.navireader_bin, vim.fn.shellescape(config.zet_path))
 
   vim.notify("Scanning for RSS feeds...", vim.log.levels.INFO)
 
@@ -92,7 +111,9 @@ function M.fetch(update)
     return
   end
 
-  local cmd = config.navireader_bin .. " fetch"
+  -- Set environment variable for data directory
+  local env = "NAVIREADER_DATA_DIR=" .. vim.fn.shellescape(config.navireader_path)
+  local cmd = env .. " " .. config.navireader_bin .. " fetch"
   if update then
     cmd = cmd .. " --update"
   end

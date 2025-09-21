@@ -45,7 +45,11 @@ local function navireader_picker(opts)
   if opts.query and opts.query ~= "" then
     articles = articles_module.search_articles(opts.query)
   else
-    articles = articles_module.get_articles(opts.limit or 100)
+    -- Pass options for filtering
+    local article_opts = {
+      show_read = opts.show_read or false  -- Default to hiding read items
+    }
+    articles = articles_module.get_articles(opts.limit or 100, article_opts)
   end
 
   if #articles == 0 then
@@ -121,9 +125,10 @@ local function navireader_picker(opts)
         local navireader = require("navireader")
         local config = navireader.get_config()
 
-        -- Build command
+        -- Build command with environment variable
         local binary = config.navireader_bin or "navireader"
-        local cmd = string.format("%s view --id %s", binary, vim.fn.shellescape(article.id))
+        local env = "NAVIREADER_DATA_DIR=" .. vim.fn.shellescape(config.navireader_path)
+        local cmd = string.format("%s %s view --id %s", env, binary, vim.fn.shellescape(article.id))
 
         -- Save current window before closing telescope
         local original_win = vim.api.nvim_get_current_win()
@@ -251,6 +256,11 @@ function M.navireader(opts)
   navireader_picker(opts)
 end
 
+function M.all(opts)
+  -- Show all articles including read ones
+  navireader_picker(vim.tbl_extend("force", opts or {}, { show_read = true }))
+end
+
 function M.search(opts)
   vim.ui.input({ prompt = "Search RSS articles: " }, function(query)
     if query then
@@ -286,6 +296,7 @@ return require("telescope").register_extension({
   end,
   exports = {
     navireader = M.navireader,
+    all = M.all,
     search = M.search,
     starred = M.starred,
   },
