@@ -89,13 +89,19 @@ local function navireader_picker(opts)
           if not text or text == "" then return {} end
 
           local wrapped = {}
-          for paragraph in text:gmatch("[^\n]+") do
-            -- Skip empty lines
-            if paragraph:match("^%s*$") then
+          -- Split by newlines first
+          local paragraphs = vim.split(text, "\n", { plain = true })
+
+          for _, paragraph in ipairs(paragraphs) do
+            -- Handle empty lines
+            if paragraph == "" or paragraph:match("^%s*$") then
               if #wrapped > 0 and wrapped[#wrapped] ~= "" then
                 table.insert(wrapped, "")
               end
             else
+              -- Trim the paragraph
+              paragraph = paragraph:gsub("^%s+", ""):gsub("%s+$", "")
+
               -- Wrap long lines
               while #paragraph > width do
                 local break_point = width
@@ -106,11 +112,12 @@ local function navireader_picker(opts)
                     break
                   end
                 end
-                table.insert(wrapped, paragraph:sub(1, break_point):gsub("^%s+", ""))
-                paragraph = paragraph:sub(break_point + 1)
+                local line = paragraph:sub(1, break_point)
+                table.insert(wrapped, line)
+                paragraph = paragraph:sub(break_point + 1):gsub("^%s+", "")
               end
               if paragraph ~= "" then
-                table.insert(wrapped, paragraph:gsub("^%s+", ""))
+                table.insert(wrapped, paragraph)
               end
             end
           end
