@@ -83,8 +83,10 @@ pub fn run_viewer(article_id: &str) -> Result<()> {
 
     // Handle action after closing
     if app.mode == ViewerMode::OpenBrowser {
+        eprintln!("Opening browser with: {}", &article.link);
         open_in_browser(&article.link);
     } else if app.mode == ViewerMode::CreateNote {
+        eprintln!("Creating note for article: {}", &article.title);
         create_note_from_article(&article)?;
     }
 
@@ -285,7 +287,11 @@ fn create_note_from_article(article: &crate::models::FeedItem) -> Result<()> {
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "user".to_string());
 
-    let zet_path = format!("/Users/{}/git/{}/zet", username, username);
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| format!("/Users/{}", username));
+
+    let zet_path = format!("{}/git/{}/zet", home, username);
     let date = chrono::Local::now().format("%Y%m%d%H%M").to_string();
     let safe_title = article.title
         .chars()
@@ -317,16 +323,26 @@ fn create_note_from_article(article: &crate::models::FeedItem) -> Result<()> {
 
     content.push_str("\n\n## Notes\n\n");
 
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&zet_path)?;
+
     std::fs::write(&filename, content)?;
+    eprintln!("Note created: {}", filename);
 
     // Open in Neovim if we're in a Neovim terminal
     if std::env::var("NVIM").is_ok() {
-        let _ = std::process::Command::new("nvim")
+        let nvim_server = std::env::var("NVIM").unwrap();
+        eprintln!("Opening in Neovim server: {}", nvim_server);
+        let result = std::process::Command::new("nvim")
             .arg("--server")
-            .arg(std::env::var("NVIM").unwrap())
+            .arg(nvim_server)
             .arg("--remote")
             .arg(&filename)
             .spawn();
+
+        if let Err(e) = result {
+            eprintln!("Failed to open in Neovim: {}", e);
+        }
     }
 
     Ok(())
