@@ -14,6 +14,17 @@ function M.setup(opts)
     local plugin_path = debug.getinfo(1).source:match("@?(.*/)") or ""
     local binary_path = plugin_path .. "bin/navireader"
 
+    -- Check if binary exists, if not, try to build it
+    if vim.fn.executable(binary_path) == 0 then
+      local plugin_root = plugin_path:gsub("/lua/navireader/$", "")
+      vim.notify("NaviReader: Building Rust binary...", vim.log.levels.INFO)
+      local result = vim.fn.system("cd " .. vim.fn.shellescape(plugin_root) .. " && make build 2>&1")
+      if vim.v.shell_error ~= 0 then
+        vim.notify("NaviReader: Build failed. Please run 'make build' in plugin directory.", vim.log.levels.ERROR)
+        return
+      end
+    end
+
     if vim.fn.executable(binary_path) == 1 then
       config.navireader_bin = vim.fn.expand(binary_path)
     else
@@ -22,21 +33,32 @@ function M.setup(opts)
       local result = handle:read("*a")
       handle:close()
       config.navireader_bin = result:gsub("\n", "")
+
+      if config.navireader_bin == "" then
+        vim.notify("NaviReader: Binary not found. Please ensure it's built.", vim.log.levels.ERROR)
+        return
+      end
     end
   end
 
   -- Create commands
   vim.api.nvim_create_user_command("NaviReaderScan", function()
     M.scan()
-  end, {})
+  end, { desc = "Scan Zettelkasten for RSS feed URLs" })
 
   vim.api.nvim_create_user_command("NaviReaderFetch", function()
     M.fetch()
-  end, {})
+  end, { desc = "Fetch RSS articles from all feeds" })
 
   vim.api.nvim_create_user_command("NaviReaderUpdate", function()
     M.fetch(true)
-  end, {})
+  end, { desc = "Rescan Zettelkasten and fetch new articles" })
+
+  -- Load Telescope extension if available
+  local ok, telescope = pcall(require, 'telescope')
+  if ok then
+    telescope.load_extension('navireader')
+  end
 end
 
 function M.scan()

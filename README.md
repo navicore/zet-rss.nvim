@@ -26,6 +26,7 @@ A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelk
       -- zet_path = vim.fn.expand("~/my-custom-path/zet"),
     })
   end,
+  cmd = { "NaviReaderScan", "NaviReaderFetch", "NaviReaderUpdate" },  -- Lazy load on commands
 }
 ```
 
