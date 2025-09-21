@@ -81,79 +81,13 @@ local function navireader_picker(opts)
         local article = entry.value
         local lines = {}
 
-        -- Get preview window width for text wrapping
-        local preview_width = vim.api.nvim_win_get_width(self.state.winid) - 4  -- Account for padding
-
-        -- Helper function to wrap text
-        local function wrap_text(text, width)
-          if not text or text == "" then return {} end
-
-          local wrapped = {}
-          -- Split by newlines first
-          local paragraphs = vim.split(text, "\n", { plain = true })
-
-          for _, paragraph in ipairs(paragraphs) do
-            -- Handle empty lines
-            if paragraph == "" or paragraph:match("^%s*$") then
-              if #wrapped > 0 and wrapped[#wrapped] ~= "" then
-                table.insert(wrapped, "")
-              end
-            else
-              -- Trim the paragraph
-              paragraph = paragraph:gsub("^%s+", ""):gsub("%s+$", "")
-
-              -- Wrap long lines
-              while #paragraph > width do
-                local break_point = width
-                -- Try to break at a space
-                for i = width, 1, -1 do
-                  if paragraph:sub(i, i) == " " then
-                    break_point = i
-                    break
-                  end
-                end
-                local line = paragraph:sub(1, break_point)
-                table.insert(wrapped, line)
-                paragraph = paragraph:sub(break_point + 1):gsub("^%s+", "")
-              end
-              if paragraph ~= "" then
-                table.insert(wrapped, paragraph)
-              end
-            end
-          end
-          return wrapped
-        end
-
-        -- Add title (wrapped if necessary)
-        local title = article.title or "Untitled"
-        if #title > preview_width then
-          local title_lines = wrap_text(title, preview_width - 2)  -- Account for "# "
-          for i, line in ipairs(title_lines) do
-            if i == 1 then
-              table.insert(lines, "# " .. line)
-            else
-              table.insert(lines, "  " .. line)
-            end
-          end
-        else
-          table.insert(lines, "# " .. title)
-        end
+        -- Add title
+        table.insert(lines, "# " .. (article.title or "Untitled"))
         table.insert(lines, "")
 
         -- Add metadata
         table.insert(lines, "**Source:** " .. (article.feed or "Unknown"))
-
-        -- Wrap long URLs if needed
-        local link = article.link or ""
-        if #link > preview_width - 10 then
-          table.insert(lines, "**Link:**")
-          for _, line in ipairs(wrap_text(link, preview_width - 2)) do
-            table.insert(lines, "  " .. line)
-          end
-        else
-          table.insert(lines, "**Link:** " .. link)
-        end
-
+        table.insert(lines, "**Link:** " .. (article.link or ""))
         if article.author and article.author ~= "" then
           table.insert(lines, "**Author:** " .. article.author)
         end
@@ -164,9 +98,8 @@ local function navireader_picker(opts)
         table.insert(lines, "---")
         table.insert(lines, "")
 
-        -- Process and add content
+        -- Process and add content with basic cleanup
         if article.content then
-          -- Clean up content: remove excessive newlines and format
           local content = article.content
 
           -- Remove markdown title if it duplicates the article title
@@ -178,15 +111,17 @@ local function navireader_picker(opts)
           -- Collapse multiple newlines into maximum of 2
           content = content:gsub("\n\n\n+", "\n\n")
 
-          -- Wrap the content
-          local wrapped_lines = wrap_text(content, preview_width)
-          for _, line in ipairs(wrapped_lines) do
+          -- Split into lines
+          local content_lines = vim.split(content, "\n")
+          for _, line in ipairs(content_lines) do
             table.insert(lines, line)
           end
         end
 
         vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
         vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
+        vim.api.nvim_buf_set_option(self.state.bufnr, "wrap", true)
+        vim.api.nvim_buf_set_option(self.state.bufnr, "linebreak", true)
       end,
     }),
     attach_mappings = function(prompt_bufnr, map)
