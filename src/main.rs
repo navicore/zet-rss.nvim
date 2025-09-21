@@ -2,6 +2,7 @@ mod scanner;
 mod fetcher;
 mod cache;
 mod models;
+mod viewer;
 
 use clap::{Parser, Subcommand};
 use anyhow::Result;
@@ -24,6 +25,10 @@ enum Commands {
     Fetch {
         #[arg(short, long)]
         update: bool,
+    },
+    View {
+        #[arg(short, long)]
+        id: String,
     },
 }
 
@@ -84,6 +89,10 @@ async fn main() -> Result<()> {
                     }
                 }
             }
+        }
+        Commands::View { id } => {
+            // Launch the TUI viewer
+            viewer::run_viewer(&id)?;
         }
     }
 

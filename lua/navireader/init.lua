@@ -7,17 +7,19 @@ local config = {
 }
 
 function M.setup(opts)
-  opts = opts or {}
+  -- Wrap everything in pcall to catch any errors
+  local ok, err = pcall(function()
+    opts = opts or {}
 
-  -- Get username and set default zet path
-  local username = vim.fn.system("whoami"):gsub("\n", "")
-  local defaults = {
-    navireader_path = vim.fn.expand("~") .. "/.navireader",
-    zet_path = vim.fn.expand("~/git/" .. username .. "/zet"),
-    navireader_bin = nil,
-  }
+    -- Get username and set default zet path
+    local username = vim.fn.system("whoami"):gsub("\n", "")
+    local defaults = {
+      navireader_path = vim.fn.expand("~") .. "/.navireader",
+      zet_path = vim.fn.expand("~/git/" .. username .. "/zet"),
+      navireader_bin = nil,
+    }
 
-  config = vim.tbl_deep_extend("force", defaults, opts)
+    config = vim.tbl_deep_extend("force", defaults, opts)
 
   -- Find binary
   local plugin_path = debug.getinfo(1).source:match("@?(.*/)") or ""
@@ -43,10 +45,16 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("NaviReaderUpdate", function() M.fetch(true) end,
     { desc = "Rescan Zettelkasten and fetch new articles" })
 
-  -- Load Telescope extension
-  local ok, telescope = pcall(require, 'telescope')
-  if ok then
-    telescope.load_extension('navireader')
+    -- Don't load Telescope extension in setup - let user do it manually
+    -- This might be causing conflicts with markdown files
+    -- local ok, telescope = pcall(require, 'telescope')
+    -- if ok then
+    --   telescope.load_extension('navireader')
+    -- end
+  end)
+
+  if not ok then
+    vim.notify("NaviReader setup failed: " .. tostring(err), vim.log.levels.ERROR)
   end
 end
 

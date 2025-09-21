@@ -26,6 +26,8 @@ A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelk
       -- Optional: override zet path (auto-detects ~/git/USERNAME/zet by default)
       -- zet_path = vim.fn.expand("~/my-custom-path/zet"),
     })
+    -- Load Telescope extension separately to avoid conflicts
+    require("telescope").load_extension("navireader")
   end,
 }
 ```

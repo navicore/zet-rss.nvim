@@ -110,75 +110,53 @@ local function navireader_picker(opts)
       end,
     }),
     attach_mappings = function(prompt_bufnr, map)
-      -- Open in browser (default action)
+      -- Open in ratatui TUI viewer (default action)
       actions.select_default:replace(function()
         local selection = action_state.get_selected_entry()
         if selection then
-          local article = selection.value
-          local articles_module = require("navireader.articles")
-          articles_module.mark_as_read(article.id)
-
-          -- Close picker first
           actions.close(prompt_bufnr)
 
-          -- Open link in browser (scheduled to not block)
-          vim.schedule(function()
-            local open_cmd
-            if vim.fn.has("mac") == 1 then
-              open_cmd = "open"
-            elseif vim.fn.has("unix") == 1 then
-              open_cmd = "xdg-open"
-            else
-              vim.notify("Cannot open browser on this platform", vim.log.levels.ERROR)
-              return
+          local article = selection.value
+          local navireader = require("navireader")
+          local config = navireader.get_config()
+
+          -- Launch TUI viewer in floating terminal
+          local width = math.min(120, math.floor(vim.o.columns * 0.9))
+          local height = math.min(40, math.floor(vim.o.lines * 0.9))
+          local col = math.floor((vim.o.columns - width) / 2)
+          local row = math.floor((vim.o.lines - height) / 2)
+
+          -- Build command
+          local cmd = string.format("%s view --id %s",
+            config.navireader_bin or "navireader",
+            vim.fn.shellescape(article.id))
+
+          -- Create floating window with terminal
+          local buf = vim.api.nvim_create_buf(false, true)
+          local win = vim.api.nvim_open_win(buf, true, {
+            relative = "editor",
+            width = width,
+            height = height,
+            col = col,
+            row = row,
+            border = "rounded",
+            title = " RSS Article Viewer ",
+            title_pos = "center",
+          })
+
+          -- Start terminal with navireader TUI
+          vim.fn.termopen(cmd, {
+            on_exit = function()
+              vim.api.nvim_win_close(win, true)
             end
+          })
 
-            vim.fn.jobstart({open_cmd, article.link}, {
-              detach = true,
-              on_exit = function(_, code)
-                if code == 0 then
-                  vim.notify("Opened: " .. article.title, vim.log.levels.INFO)
-                end
-              end,
-            })
-          end)
+          -- Enter insert mode to interact with TUI
+          vim.cmd("startinsert")
         end
       end)
 
-      -- Toggle star
-      map("i", "<C-s>", function()
-        local selection = action_state.get_selected_entry()
-        if selection then
-          local articles_module = require("navireader.articles")
-          articles_module.toggle_star(selection.value.id)
-          -- Update the local value so it shows correctly if user continues browsing
-          selection.value.starred = not selection.value.starred
-          vim.notify("Toggled star for: " .. selection.value.title)
-        end
-      end)
-
-      -- Mark as read
-      map("i", "<C-r>", function()
-        local selection = action_state.get_selected_entry()
-        if selection then
-          local articles_module = require("navireader.articles")
-          articles_module.mark_as_read(selection.value.id)
-          -- Update the local value
-          selection.value.read = true
-          vim.notify("Marked as read: " .. selection.value.title)
-        end
-      end)
-
-      -- Copy link to clipboard
-      map("i", "<C-y>", function()
-        local selection = action_state.get_selected_entry()
-        if selection then
-          vim.fn.setreg("+", selection.value.link)
-          vim.notify("Copied link to clipboard")
-        end
-      end)
-
-      -- Create note from article
+      -- Keep C-n since you said it works
       map("i", "<C-n>", function()
         local selection = action_state.get_selected_entry()
         if selection then
@@ -225,17 +203,6 @@ local function navireader_picker(opts)
           local articles_module = require("navireader.articles")
           articles_module.mark_as_read(article.id)
         end
-      end)
-
-      -- Show stats
-      map("i", "<C-i>", function()
-        local articles_module = require("navireader.articles")
-        local stats = articles_module.get_stats()
-        vim.notify(string.format(
-          "Articles: %d total, %d unread",
-          stats.total,
-          stats.unread
-        ), vim.log.levels.INFO)
       end)
 
       return true
