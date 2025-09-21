@@ -133,32 +133,38 @@ local function navireader_picker(opts)
 
           -- Create floating window with terminal
           local buf = vim.api.nvim_create_buf(false, true)
-          local win = vim.api.nvim_open_win(buf, true, {
+
+          local opts = {
             relative = "editor",
             width = width,
             height = height,
             col = col,
             row = row,
+            style = "minimal",
             border = "rounded",
             title = " RSS Article Viewer ",
             title_pos = "center",
-            focusable = true,
+          }
+
+          local win = vim.api.nvim_open_win(buf, true, opts)
+
+          -- Start terminal in the buffer with auto-close on exit
+          local job_id = vim.fn.termopen(cmd, {
+            on_exit = function(_, exit_code, _)
+              -- Close the window when process exits
+              vim.schedule(function()
+                if vim.api.nvim_win_is_valid(win) then
+                  vim.api.nvim_win_close(win, true)
+                end
+              end)
+            end,
           })
 
-          -- Set current window to the floating window
-          vim.api.nvim_set_current_win(win)
-
-          -- Start terminal in the buffer
-          local term_id = vim.fn.termopen(cmd, {
-            on_exit = function()
-              if vim.api.nvim_win_is_valid(win) then
-                vim.api.nvim_win_close(win, true)
-              end
-            end
-          })
-
-          -- Enter terminal mode to send keys to the terminal
+          -- Enter insert mode so terminal gets keyboard input
           vim.cmd('startinsert')
+
+          -- Set up keymap to exit terminal mode with Esc
+          vim.api.nvim_buf_set_keymap(buf, 't', '<Esc>', '<C-\\><C-n>', { noremap = true })
         end
       end)
 
