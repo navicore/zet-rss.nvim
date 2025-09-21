@@ -153,8 +153,8 @@ local function navireader_picker(opts)
             end
           })
 
-          -- Stay in normal mode - TUI handles its own input
-          -- User can press 'i' if they need to interact differently
+          -- Enter insert mode so TUI can capture keyboard input
+          vim.cmd('startinsert')
         end
       end)
 

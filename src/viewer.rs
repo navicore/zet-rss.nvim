@@ -113,10 +113,10 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut View
     loop {
         terminal.draw(|f| ui(f, app))?;
 
-        // Poll for events with a small timeout to keep UI responsive
-        if crossterm::event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                // Don't check for Press/Release on older crossterm versions
+        // Read events directly without polling
+        if let Event::Key(key) = event::read()? {
+            // Only handle key press events, ignore release events
+            if key.kind == KeyEventKind::Press {
                 match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
                     KeyCode::Char('o') => {
