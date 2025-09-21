@@ -98,7 +98,7 @@ local function navireader_picker(opts)
         table.insert(lines, "---")
         table.insert(lines, "")
 
-        -- Process and add content with basic cleanup
+        -- Process and add content with aggressive cleanup
         if article.content then
           local content = article.content
 
@@ -108,20 +108,57 @@ local function navireader_picker(opts)
           -- Remove "Read original" link at the end
           content = content:gsub("%[Read original%][^\n]*\n*$", "")
 
-          -- Collapse multiple newlines into maximum of 2
+          -- Aggressively clean up whitespace
+          -- First, collapse multiple spaces into one
+          content = content:gsub("  +", " ")
+
+          -- Remove leading/trailing whitespace from each line
+          content = content:gsub("\n%s+", "\n")
+          content = content:gsub("%s+\n", "\n")
+
+          -- Collapse multiple newlines: 2+ becomes just 1 blank line (2 newlines)
           content = content:gsub("\n\n\n+", "\n\n")
 
-          -- Split into lines
+          -- Remove empty lines that only contain spaces or tabs
+          content = content:gsub("\n[ \t]+\n", "\n\n")
+
+          -- Trim start and end
+          content = content:gsub("^%s+", ""):gsub("%s+$", "")
+
+          -- Split into lines and wrap long lines
           local content_lines = vim.split(content, "\n")
+          local preview_width = vim.api.nvim_win_get_width(self.state.winid) - 4
+
           for _, line in ipairs(content_lines) do
-            table.insert(lines, line)
+            -- Wrap long lines manually
+            if #line > preview_width then
+              while #line > preview_width do
+                -- Find a good break point (space)
+                local break_point = preview_width
+                for i = preview_width, math.max(1, preview_width - 20), -1 do
+                  if line:sub(i, i) == " " then
+                    break_point = i
+                    break
+                  end
+                end
+                table.insert(lines, line:sub(1, break_point))
+                line = line:sub(break_point + 1):gsub("^%s+", "")
+              end
+              if #line > 0 then
+                table.insert(lines, line)
+              end
+            else
+              table.insert(lines, line)
+            end
           end
         end
 
         vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
         vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
+        -- Set wrap options for the preview buffer
         vim.api.nvim_buf_set_option(self.state.bufnr, "wrap", true)
         vim.api.nvim_buf_set_option(self.state.bufnr, "linebreak", true)
+        vim.api.nvim_buf_set_option(self.state.bufnr, "breakindent", true)
       end,
     }),
     attach_mappings = function(prompt_bufnr, map)
