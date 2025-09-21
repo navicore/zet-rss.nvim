@@ -110,61 +110,69 @@ local function navireader_picker(opts)
       end,
     }),
     attach_mappings = function(prompt_bufnr, map)
-      -- Open in ratatui TUI viewer (default action)
-      actions.select_default:replace(function()
+      -- Custom action to open in TUI viewer
+      local open_in_viewer = function(bufnr)
         local selection = action_state.get_selected_entry()
-        if selection then
-          local article = selection.value
-          local navireader = require("navireader")
-          local config = navireader.get_config()
-
-          -- Build command
-          local binary = config.navireader_bin or "navireader"
-          local cmd = string.format("%s view --id %s", binary, vim.fn.shellescape(article.id))
-
-          -- Close telescope
-          actions.close(prompt_bufnr)
-
-          -- Use vim.schedule to ensure we open terminal after telescope closes
-          vim.schedule(function()
-            -- Launch TUI viewer in floating terminal
-            local width = math.min(120, math.floor(vim.o.columns * 0.9))
-            local height = math.min(40, math.floor(vim.o.lines * 0.9))
-            local col = math.floor((vim.o.columns - width) / 2)
-            local row = math.floor((vim.o.lines - height) / 2)
-
-            -- Create buffer
-            local buf = vim.api.nvim_create_buf(false, true)
-
-            -- Create floating window
-            local win = vim.api.nvim_open_win(buf, true, {
-              relative = "editor",
-              width = width,
-              height = height,
-              col = col,
-              row = row,
-              style = "minimal",
-              border = "rounded",
-              title = " RSS Article Viewer ",
-              title_pos = "center",
-            })
-
-            -- Start the terminal in the buffer
-            local job_id = vim.fn.termopen(cmd, {
-              on_exit = function()
-                vim.schedule(function()
-                  if vim.api.nvim_win_is_valid(win) then
-                    vim.api.nvim_win_close(win, true)
-                  end
-                end)
-              end
-            })
-
-            -- Enter insert mode
-            vim.cmd('startinsert')
-          end)
+        if not selection then
+          return
         end
-      end)
+
+        local article = selection.value
+        local navireader = require("navireader")
+        local config = navireader.get_config()
+
+        -- Build command
+        local binary = config.navireader_bin or "navireader"
+        local cmd = string.format("%s view --id %s", binary, vim.fn.shellescape(article.id))
+
+        -- Save current window before closing telescope
+        local original_win = vim.api.nvim_get_current_win()
+
+        -- Close telescope
+        actions.close(bufnr)
+
+        -- Open terminal after a short delay to ensure telescope is fully closed
+        vim.defer_fn(function()
+          -- Create buffer for terminal
+          local buf = vim.api.nvim_create_buf(false, true)
+
+          -- Calculate window size
+          local width = math.min(120, math.floor(vim.o.columns * 0.9))
+          local height = math.min(40, math.floor(vim.o.lines * 0.9))
+          local col = math.floor((vim.o.columns - width) / 2)
+          local row = math.floor((vim.o.lines - height) / 2)
+
+          -- Open floating window
+          local win = vim.api.nvim_open_win(buf, true, {
+            relative = "editor",
+            width = width,
+            height = height,
+            col = col,
+            row = row,
+            style = "minimal",
+            border = "rounded",
+            title = " RSS Article Viewer ",
+            title_pos = "center",
+          })
+
+          -- Start terminal
+          vim.fn.termopen(cmd, {
+            on_exit = function()
+              vim.schedule(function()
+                if vim.api.nvim_win_is_valid(win) then
+                  vim.api.nvim_win_close(win, true)
+                end
+              end)
+            end
+          })
+
+          -- Enter insert mode for terminal
+          vim.cmd('startinsert')
+        end, 10)
+      end
+
+      -- Replace default action
+      actions.select_default:replace(open_in_viewer)
 
       -- Keep C-n since you said it works
       map("i", "<C-n>", function()
