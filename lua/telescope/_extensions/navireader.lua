@@ -157,10 +157,30 @@ local function navireader_picker(opts)
 
           -- Start terminal
           vim.fn.termopen(cmd, {
-            on_exit = function()
+            on_exit = function(_, exit_code)
               vim.schedule(function()
                 if vim.api.nvim_win_is_valid(win) then
                   vim.api.nvim_win_close(win, true)
+                end
+
+                -- Handle exit codes
+                if exit_code == 1 then
+                  -- Open browser
+                  local url_file = io.open("/tmp/navireader_open_url.txt", "r")
+                  if url_file then
+                    local url = url_file:read("*a")
+                    url_file:close()
+                    vim.fn.system("open " .. vim.fn.shellescape(url))
+                    vim.notify("Opening in browser: " .. url)
+                  end
+                elseif exit_code == 2 then
+                  -- Open note
+                  local note_file = io.open("/tmp/navireader_note_path.txt", "r")
+                  if note_file then
+                    local note_path = note_file:read("*a")
+                    note_file:close()
+                    vim.cmd("edit " .. vim.fn.fnameescape(note_path))
+                  end
                 end
               end)
             end

@@ -17,7 +17,7 @@ use std::io::Write;
 use std::fs::OpenOptions;
 use crate::cache::TextCache;
 
-pub fn run_viewer(article_id: &str) -> Result<()> {
+pub fn run_viewer(article_id: &str) -> Result<i32> {
     // Log to file for debugging
     let log_file = "/tmp/navireader_debug.log";
     let _ = std::fs::write(log_file, format!("Starting viewer for article: {}\n", article_id));
@@ -100,20 +100,24 @@ pub fn run_viewer(article_id: &str) -> Result<()> {
         }
     }
 
-    // Handle action after closing
-    if app.mode == ViewerMode::OpenBrowser {
-        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
-            let _ = writeln!(file, "Opening browser with: {}", &article.link);
+    // Return different exit codes based on action
+    let exit_code = match app.mode {
+        ViewerMode::Reading => 0,
+        ViewerMode::OpenBrowser => {
+            // Write URL to a temp file for Lua to read
+            let _ = std::fs::write("/tmp/navireader_open_url.txt", &article.link);
+            1
         }
-        open_in_browser(&article.link);
-    } else if app.mode == ViewerMode::CreateNote {
-        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
-            let _ = writeln!(file, "Creating note for article: {}", &article.title);
+        ViewerMode::CreateNote => {
+            // Create the note and write path to temp file
+            if let Ok(note_path) = create_note_from_article(&article) {
+                let _ = std::fs::write("/tmp/navireader_note_path.txt", &note_path);
+            }
+            2
         }
-        create_note_from_article(&article)?;
-    }
+    };
 
-    Ok(())
+    Ok(exit_code)
 }
 
 #[derive(PartialEq)]
@@ -332,7 +336,7 @@ fn open_in_browser(url: &str) {
     }
 }
 
-fn create_note_from_article(article: &crate::models::FeedItem) -> Result<()> {
+fn create_note_from_article(article: &crate::models::FeedItem) -> Result<String> {
     let username = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "user".to_string());
@@ -378,27 +382,5 @@ fn create_note_from_article(article: &crate::models::FeedItem) -> Result<()> {
 
     std::fs::write(&filename, content)?;
 
-    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
-        let _ = writeln!(file, "Note created: {}", filename);
-    }
-
-    // Open in Neovim if we're in a Neovim terminal
-    if std::env::var("NVIM").is_ok() {
-        let nvim_server = std::env::var("NVIM").unwrap();
-        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
-            let _ = writeln!(file, "Opening in Neovim server: {}", nvim_server);
-        }
-        let result = std::process::Command::new("nvim")
-            .arg("--server")
-            .arg(nvim_server)
-            .arg("--remote")
-            .arg(&filename)
-            .spawn();
-
-        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
-            let _ = writeln!(file, "Neovim spawn result: {:?}", result);
-        }
-    }
-
-    Ok(())
+    Ok(filename)
 }

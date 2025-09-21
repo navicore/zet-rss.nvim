@@ -92,7 +92,8 @@ async fn main() -> Result<()> {
         }
         Commands::View { id } => {
             // Launch the TUI viewer
-            viewer::run_viewer(&id)?;
+            let exit_code = viewer::run_viewer(&id)?;
+            std::process::exit(exit_code);
         }
     }
 
