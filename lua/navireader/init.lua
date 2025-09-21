@@ -1,66 +1,98 @@
 local M = {}
 
+-- Don't initialize config with io.popen at module load time - this can cause race conditions
 local config = {
-  navireader_path = vim.fn.expand("~") .. "/.navireader",
-  zet_path = vim.fn.expand("~/git/" .. io.popen("whoami"):read("*a"):gsub("\n", "") .. "/zet"),
-  navireader_bin = nil, -- will search in PATH if not specified
+  navireader_path = nil,
+  zet_path = nil,
+  navireader_bin = nil,
 }
 
+-- Track if we've already set up
+local is_setup = false
+
 function M.setup(opts)
-  config = vim.tbl_deep_extend("force", config, opts or {})
+  -- Prevent double setup
+  if is_setup then
+    return
+  end
+  is_setup = true
 
-  -- Find navireader binary in plugin's bin directory
-  if not config.navireader_bin then
-    local plugin_path = debug.getinfo(1).source:match("@?(.*/)") or ""
-    local binary_path = plugin_path .. "bin/navireader"
+  -- Merge options first, before any I/O operations
+  opts = opts or {}
 
-    -- Check if binary exists, if not, try to build it
-    if vim.fn.executable(binary_path) == 0 then
-      local plugin_root = plugin_path:gsub("/lua/navireader/$", "")
-      vim.notify("NaviReader: Building Rust binary...", vim.log.levels.INFO)
-      local result = vim.fn.system("cd " .. vim.fn.shellescape(plugin_root) .. " && make build 2>&1")
-      if vim.v.shell_error ~= 0 then
-        vim.notify("NaviReader: Build failed. Please run 'make build' in plugin directory.", vim.log.levels.ERROR)
-        return
-      end
-    end
+  -- Set defaults using simple string operations - no I/O yet
+  local defaults = {
+    navireader_path = vim.fn.expand("~") .. "/.navireader",
+    zet_path = nil,  -- Will be set lazily
+    navireader_bin = nil,  -- Will be found lazily
+  }
 
-    if vim.fn.executable(binary_path) == 1 then
-      config.navireader_bin = binary_path
-    else
-      -- Fallback to system PATH
-      local handle = io.popen("which navireader 2>/dev/null")
-      if handle then
-        local result = handle:read("*a")
-        handle:close()
-        config.navireader_bin = result:gsub("\n", "")
-      end
+  config = vim.tbl_deep_extend("force", defaults, opts)
+
+  -- Create commands IMMEDIATELY - before any I/O operations
+  -- Commands should always be created, even if binary isn't found yet
+  local function create_command(name, func, desc)
+    local ok, err = pcall(vim.api.nvim_create_user_command, name, func, { desc = desc })
+    if not ok and not err:match("already exists") then
+      vim.notify("NaviReader: Failed to create command " .. name .. ": " .. err, vim.log.levels.ERROR)
     end
   end
 
-  -- Create commands
-  vim.api.nvim_create_user_command("NaviReaderScan", function()
-    M.scan()
-  end, { desc = "Scan Zettelkasten for RSS feed URLs" })
+  create_command("NaviReaderScan", function() M.scan() end,
+    "Scan Zettelkasten for RSS feed URLs")
 
-  vim.api.nvim_create_user_command("NaviReaderFetch", function()
-    M.fetch()
-  end, { desc = "Fetch RSS articles from all feeds" })
+  create_command("NaviReaderFetch", function() M.fetch() end,
+    "Fetch RSS articles from all feeds")
 
-  vim.api.nvim_create_user_command("NaviReaderUpdate", function()
-    M.fetch(true)
-  end, { desc = "Rescan Zettelkasten and fetch new articles" })
+  create_command("NaviReaderUpdate", function() M.fetch(true) end,
+    "Rescan Zettelkasten and fetch new articles")
 
-  -- Load Telescope extension if available
+  -- Load Telescope extension if available (this is safe, no I/O)
   local ok, telescope = pcall(require, 'telescope')
   if ok then
     telescope.load_extension('navireader')
   end
+
+  -- Defer all I/O operations to when they're actually needed
+  -- This avoids blocking during setup
+end
+
+-- Lazy initialization of paths and binary
+local function ensure_initialized()
+  -- Lazy init zet_path
+  if not config.zet_path then
+    local username = vim.fn.system("whoami"):gsub("\n", "")
+    config.zet_path = vim.fn.expand("~/git/" .. username .. "/zet")
+  end
+
+  -- Lazy find binary
+  if not config.navireader_bin then
+    local plugin_path = debug.getinfo(1).source:match("@?(.*/)") or ""
+    local binary_path = plugin_path:gsub("/navireader/", "/navireader/bin/navireader")
+
+    if vim.fn.executable(binary_path) == 1 then
+      config.navireader_bin = binary_path
+    else
+      -- Try system PATH
+      local which_result = vim.fn.system("which navireader 2>/dev/null"):gsub("\n", "")
+      if which_result ~= "" then
+        config.navireader_bin = which_result
+      end
+    end
+  end
+
+  return config.navireader_bin ~= nil
 end
 
 function M.scan()
-  if not config.navireader_bin or config.navireader_bin == "" then
-    vim.notify("navireader binary not found! Please build it with 'cargo build --release'", vim.log.levels.ERROR)
+  if not is_setup then
+    vim.notify("NaviReader: Please run :lua require('navireader').setup() first", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Ensure paths and binary are initialized (lazy)
+  if not ensure_initialized() then
+    vim.notify("navireader binary not found! Please build it with 'make build' in plugin directory", vim.log.levels.ERROR)
     return
   end
 
@@ -87,8 +119,14 @@ function M.scan()
 end
 
 function M.fetch(update)
-  if not config.navireader_bin or config.navireader_bin == "" then
-    vim.notify("navireader binary not found! Please build it with 'cargo build --release'", vim.log.levels.ERROR)
+  if not is_setup then
+    vim.notify("NaviReader: Please run :lua require('navireader').setup() first", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Ensure paths and binary are initialized (lazy)
+  if not ensure_initialized() then
+    vim.notify("navireader binary not found! Please build it with 'make build' in plugin directory", vim.log.levels.ERROR)
     return
   end
 
