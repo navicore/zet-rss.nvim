@@ -62,6 +62,10 @@ function M.setup(opts)
     require('telescope').extensions.navireader.starred()
   end, { desc = "Browse starred RSS articles" })
 
+  vim.api.nvim_create_user_command("NaviReaderClearCache", function()
+    M.clear_cache()
+  end, { desc = "Clear all cached RSS articles and data" })
+
     -- Don't load Telescope extension in setup - let user do it manually
     -- This might be causing conflicts with markdown files
     -- local ok, telescope = pcall(require, 'telescope')
@@ -139,6 +143,49 @@ function M.fetch(update)
       end
     end,
   })
+end
+
+function M.clear_cache()
+  -- Get article count for informative message
+  local articles_dir = config.navireader_path .. "/articles"
+  local count = 0
+  local handle = io.popen("ls " .. vim.fn.shellescape(articles_dir) .. "/*.md 2>/dev/null | wc -l")
+  if handle then
+    count = tonumber(handle:read("*a")) or 0
+    handle:close()
+  end
+
+  local message = string.format(
+    "This will delete:\n• %d cached articles\n• All feed metadata\n• Scan results\n\nAre you sure? (y/N): ",
+    count
+  )
+
+  vim.ui.input({ prompt = message }, function(input)
+    if input and (input:lower() == "y" or input:lower() == "yes") then
+      -- Clear the directories
+      local paths = {
+        config.navireader_path,
+        vim.fn.expand("~/.local/share/navireader"),  -- Fallback location
+        vim.fn.expand("~/.navireader"),  -- Old location if it exists
+      }
+
+      local cleared = false
+      for _, path in ipairs(paths) do
+        if vim.fn.isdirectory(path) == 1 then
+          vim.fn.delete(path, "rf")
+          cleared = true
+        end
+      end
+
+      if cleared then
+        vim.notify("NaviReader cache cleared! Run :NaviReaderScan and :NaviReaderFetch to get fresh articles.", vim.log.levels.INFO)
+      else
+        vim.notify("No cache found to clear.", vim.log.levels.WARN)
+      end
+    else
+      vim.notify("Cache clear cancelled.", vim.log.levels.INFO)
+    end
+  end)
 end
 
 function M.get_config()
