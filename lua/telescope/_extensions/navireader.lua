@@ -171,7 +171,6 @@ local function navireader_picker(opts)
                     local url = url_file:read("*a")
                     url_file:close()
                     vim.fn.system("open " .. vim.fn.shellescape(url))
-                    vim.notify("Opening in browser: " .. url)
                   end
                 elseif exit_code == 2 then
                   -- Open note
