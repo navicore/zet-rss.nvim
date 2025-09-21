@@ -118,23 +118,30 @@ local function navireader_picker(opts)
           local articles_module = require("navireader.articles")
           articles_module.mark_as_read(article.id)
 
-          -- Open link in browser
-          local open_cmd
-          if vim.fn.has("mac") == 1 then
-            open_cmd = "open"
-          elseif vim.fn.has("unix") == 1 then
-            open_cmd = "xdg-open"
-          else
-            vim.notify("Cannot open browser on this platform", vim.log.levels.ERROR)
-            return
-          end
-
-          vim.fn.system(open_cmd .. " " .. vim.fn.shellescape(article.link))
-          vim.notify("Opened: " .. article.title, vim.log.levels.INFO)
-
-          -- Refresh the picker
+          -- Close picker first
           actions.close(prompt_bufnr)
-          navireader_picker(opts)
+
+          -- Open link in browser (scheduled to not block)
+          vim.schedule(function()
+            local open_cmd
+            if vim.fn.has("mac") == 1 then
+              open_cmd = "open"
+            elseif vim.fn.has("unix") == 1 then
+              open_cmd = "xdg-open"
+            else
+              vim.notify("Cannot open browser on this platform", vim.log.levels.ERROR)
+              return
+            end
+
+            vim.fn.jobstart({open_cmd, article.link}, {
+              detach = true,
+              on_exit = function(_, code)
+                if code == 0 then
+                  vim.notify("Opened: " .. article.title, vim.log.levels.INFO)
+                end
+              end,
+            })
+          end)
         end
       end)
 
@@ -144,11 +151,9 @@ local function navireader_picker(opts)
         if selection then
           local articles_module = require("navireader.articles")
           articles_module.toggle_star(selection.value.id)
+          -- Update the local value so it shows correctly if user continues browsing
+          selection.value.starred = not selection.value.starred
           vim.notify("Toggled star for: " .. selection.value.title)
-
-          -- Refresh the picker
-          actions.close(prompt_bufnr)
-          navireader_picker(opts)
         end
       end)
 
@@ -158,11 +163,9 @@ local function navireader_picker(opts)
         if selection then
           local articles_module = require("navireader.articles")
           articles_module.mark_as_read(selection.value.id)
+          -- Update the local value
+          selection.value.read = true
           vim.notify("Marked as read: " .. selection.value.title)
-
-          -- Refresh the picker
-          actions.close(prompt_bufnr)
-          navireader_picker(opts)
         end
       end)
 
