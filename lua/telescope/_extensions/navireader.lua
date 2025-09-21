@@ -127,9 +127,11 @@ local function navireader_picker(opts)
           local row = math.floor((vim.o.lines - height) / 2)
 
           -- Build command
-          local cmd = string.format("%s view --id %s",
-            config.navireader_bin or "navireader",
-            vim.fn.shellescape(article.id))
+          local binary = config.navireader_bin or "navireader"
+          local cmd = string.format("%s view --id %s", binary, vim.fn.shellescape(article.id))
+
+          -- Debug: Print the command being run
+          vim.notify("Running: " .. cmd, vim.log.levels.INFO)
 
           -- Create floating window with terminal
           local buf = vim.api.nvim_create_buf(false, true)
