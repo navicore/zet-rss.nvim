@@ -13,9 +13,15 @@ use ratatui::{
     Frame, Terminal,
 };
 use std::io;
+use std::io::Write;
+use std::fs::OpenOptions;
 use crate::cache::TextCache;
 
 pub fn run_viewer(article_id: &str) -> Result<()> {
+    // Log to file for debugging
+    let log_file = "/tmp/navireader_debug.log";
+    let _ = std::fs::write(log_file, format!("Starting viewer for article: {}\n", article_id));
+
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -77,16 +83,33 @@ pub fn run_viewer(article_id: &str) -> Result<()> {
     )?;
     terminal.show_cursor()?;
 
+    // Log the mode to file
+    let mode_str = match app.mode {
+        ViewerMode::Reading => "Reading",
+        ViewerMode::OpenBrowser => "OpenBrowser",
+        ViewerMode::CreateNote => "CreateNote",
+    };
+
+    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+        let _ = writeln!(file, "TUI exited with mode: {}", mode_str);
+    }
+
     if let Err(err) = res {
-        eprintln!("Error: {:?}", err);
+        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+            let _ = writeln!(file, "Error in run_app: {:?}", err);
+        }
     }
 
     // Handle action after closing
     if app.mode == ViewerMode::OpenBrowser {
-        eprintln!("Opening browser with: {}", &article.link);
+        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+            let _ = writeln!(file, "Opening browser with: {}", &article.link);
+        }
         open_in_browser(&article.link);
     } else if app.mode == ViewerMode::CreateNote {
-        eprintln!("Creating note for article: {}", &article.title);
+        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+            let _ = writeln!(file, "Creating note for article: {}", &article.title);
+        }
         create_note_from_article(&article)?;
     }
 
@@ -116,22 +139,16 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut View
 
         // Read events (blocking)
         if let Event::Key(key) = event::read()? {
-            // Debug: log the key press
-            eprintln!("Key pressed: {:?}", key.code);
-
             // Handle all key events
             match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => {
-                        eprintln!("Exiting with q/Esc");
                         return Ok(());
                     }
                     KeyCode::Char('o') => {
-                        eprintln!("Setting mode to OpenBrowser");
                         app.mode = ViewerMode::OpenBrowser;
                         return Ok(());
                     }
                     KeyCode::Char('n') => {
-                        eprintln!("Setting mode to CreateNote");
                         app.mode = ViewerMode::CreateNote;
                         return Ok(());
                     }
@@ -277,6 +294,10 @@ fn render_footer(f: &mut Frame, area: Rect) {
 }
 
 fn open_in_browser(url: &str) {
+    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+        let _ = writeln!(file, "open_in_browser called with URL: {}", url);
+    }
+
     let open_cmd = if cfg!(target_os = "macos") {
         "open"
     } else if cfg!(target_os = "linux") {
@@ -285,9 +306,13 @@ fn open_in_browser(url: &str) {
         return;
     };
 
-    let _ = std::process::Command::new(open_cmd)
+    let result = std::process::Command::new(open_cmd)
         .arg(url)
         .spawn();
+
+    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+        let _ = writeln!(file, "Browser spawn result: {:?}", result);
+    }
 }
 
 fn create_note_from_article(article: &crate::models::FeedItem) -> Result<()> {
@@ -335,12 +360,17 @@ fn create_note_from_article(article: &crate::models::FeedItem) -> Result<()> {
     std::fs::create_dir_all(&zet_path)?;
 
     std::fs::write(&filename, content)?;
-    eprintln!("Note created: {}", filename);
+
+    if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+        let _ = writeln!(file, "Note created: {}", filename);
+    }
 
     // Open in Neovim if we're in a Neovim terminal
     if std::env::var("NVIM").is_ok() {
         let nvim_server = std::env::var("NVIM").unwrap();
-        eprintln!("Opening in Neovim server: {}", nvim_server);
+        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+            let _ = writeln!(file, "Opening in Neovim server: {}", nvim_server);
+        }
         let result = std::process::Command::new("nvim")
             .arg("--server")
             .arg(nvim_server)
@@ -348,8 +378,8 @@ fn create_note_from_article(article: &crate::models::FeedItem) -> Result<()> {
             .arg(&filename)
             .spawn();
 
-        if let Err(e) = result {
-            eprintln!("Failed to open in Neovim: {}", e);
+        if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/tmp/navireader_debug.log") {
+            let _ = writeln!(file, "Neovim spawn result: {:?}", result);
         }
     }
 
