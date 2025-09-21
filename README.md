@@ -1,15 +1,19 @@
 # NaviReader
 
-A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelkasten workflow. No servers, no databases - just text files and a fast Rust backend.
+A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelkasten workflow. No servers, no databases - just text files and a fast Rust backend with a beautiful TUI viewer.
 
 ## Features
 
-- **Privacy First**: All data stored locally as plain text files
-- **Zettelkasten Integration**: Scans your markdown notes for RSS feeds
-- **Pure Text Storage**: Articles saved as markdown with YAML frontmatter
-- **Telescope UI**: Browse, search, and manage feeds within Neovim
-- **Fast Search**: Full-text search across all cached articles
-- **Offline Reading**: Read cached articles anytime
+- 🔒 **Privacy First**: All data stored locally as plain text files
+- 📝 **Zettelkasten Integration**: Scans your markdown notes for RSS feeds
+- 📖 **TUI Viewer**: Beautiful terminal UI for reading articles with vim-style navigation
+- 🔍 **Smart Filtering**: Shows unread articles by default, sorted by date
+- 🎯 **Telescope UI**: Browse, search, and manage feeds within Neovim
+- 💾 **Pure Text Storage**: Articles saved as markdown with YAML frontmatter
+- ⚡ **Fast Search**: Full-text search across all cached articles
+- 📱 **Offline Reading**: Read cached articles anytime
+- ⭐ **Article Starring**: Mark articles for later reference
+- 🗂️ **Unified Commands**: Single NaviReader command with intuitive subcommands
 
 ## Installation
 
@@ -19,14 +23,14 @@ A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelk
 {
   "navicore/navireader",
   dependencies = { "nvim-telescope/telescope.nvim" },
-  build = "make install",  -- Automatically builds Rust binary
-  lazy = false,  -- Load immediately to register commands
+  build = "cargo build --release && mkdir -p bin && cp target/release/navireader bin/",
+  lazy = false,  -- IMPORTANT: Required for commands to register properly
   config = function()
     require("navireader").setup({
       -- Optional: override zet path (auto-detects ~/git/USERNAME/zet by default)
       -- zet_path = vim.fn.expand("~/my-custom-path/zet"),
     })
-    -- Load Telescope extension separately to avoid conflicts
+    -- Load Telescope extension
     require("telescope").load_extension("navireader")
   end,
 }
@@ -56,33 +60,50 @@ The plugin automatically compiles the Rust backend on first install. If you need
 
 ```bash
 cd ~/.local/share/nvim/lazy/navireader  # or wherever your plugins are
-make clean build
+cargo build --release && cp target/release/navireader bin/
 ```
 
 ## Usage
 
-### Neovim Commands
+### Unified Command Structure
+
+NaviReader uses a single command with subcommands:
 
 ```vim
-:NaviReaderScan    " Scan your zet for RSS feed URLs
-:NaviReaderFetch   " Fetch new articles from all feeds
-:NaviReaderUpdate  " Rescan zet and fetch new articles
+:NaviReader              " Browse unread articles (default)
+:NaviReader all          " Browse all articles including read ones
+:NaviReader search       " Search articles
+:NaviReader starred      " Browse starred articles
+:NaviReader scan         " Scan your Zettelkasten for RSS feed URLs
+:NaviReader fetch        " Fetch new articles from all feeds
+:NaviReader update       " Rescan notes and fetch new articles
+:NaviReader clear-cache  " Clear all cached data (with confirmation)
+```
 
-:Telescope navireader           " Browse all articles
+### Telescope Commands (Alternative)
+
+```vim
+:Telescope navireader           " Browse unread articles
+:Telescope navireader all       " Browse all articles
 :Telescope navireader search    " Search articles
 :Telescope navireader starred   " Show starred articles
 ```
 
-### Telescope Keybindings
+### Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `<CR>` | Open article in browser & mark as read |
-| `<C-n>` | Create new Zettelkasten note from article |
-| `<C-s>` | Toggle star |
-| `<C-r>` | Mark as read without opening |
-| `<C-y>` | Copy link to clipboard |
-| `<C-i>` | Show stats (total/unread counts) |
+**In Telescope browser:**
+- `<CR>` - Open article in TUI viewer
+- `<C-n>` - Create a Zettelkasten note from article
+
+**In TUI viewer:**
+- `j/k` - Scroll down/up
+- `g/G` - Go to top/bottom
+- `d/u` - Page down/up
+- `Space` - Page down
+- `q` - Quit viewer
+- `o` - Open in web browser
+- `n` - Create Zettelkasten note
+- `s` - Toggle starred status
 
 ### CLI Usage (optional)
 
@@ -107,7 +128,7 @@ navireader fetch --update
    - YAML frontmatter with `rss_feeds:` lists
    - URLs ending in `.rss`, `.xml`, `/feed`, `/rss`, etc.
 
-2. **Text Storage**: Articles are stored in `~/.navireader/articles/` as markdown:
+2. **Text Storage**: Articles are stored in `~/.local/share/nvim/navireader/articles/` as markdown:
    ```markdown
    ---
    id: unique-article-id
@@ -143,25 +164,31 @@ navireader fetch --update
 
 2. In Neovim:
    ```vim
-   :NaviReaderScan     " Find feeds in your notes
-   :NaviReaderFetch    " Download articles
-   :Telescope navireader  " Start reading!
+   :NaviReader scan     " Find feeds in your notes
+   :NaviReader fetch    " Download articles
+   :NaviReader          " Start reading!
    ```
 
-3. Create notes from interesting articles with `<C-n>`
+3. Create notes from interesting articles with `n` in viewer or `<C-n>` in Telescope
 
-## File Structure
+## Data Storage
+
+NaviReader stores data in Neovim's standard data directory:
+- **Linux/macOS**: `~/.local/share/nvim/navireader/`
+- **Windows**: `~/AppData/Local/nvim-data/navireader/`
 
 ```
-~/.navireader/
+~/.local/share/nvim/navireader/
 ├── articles/           # Individual articles as .md files
-│   ├── 20240115-120530-article-title.md
+│   ├── unique-article-id.md
 │   └── ...
 ├── feeds/              # Feed metadata
 │   └── feed-name.json
 └── state/              # Feed URLs discovered from your notes
     └── feeds.txt
 ```
+
+Articles are stored with clean, unique IDs and contain metadata in YAML frontmatter including read status, starred status, publication date, and more.
 
 ## Benefits
 
@@ -170,6 +197,8 @@ navireader fetch --update
 - **Speed**: Rust backend + local files = instant search
 - **Integration**: Works seamlessly with your existing Zettelkasten
 - **Hackable**: Plain text format works with any Unix tool
+- **Intelligent Defaults**: Shows unread articles first, sorted by date
+- **Clean UI**: Optimized Telescope preview with proper text wrapping
 
 ## Requirements
 
