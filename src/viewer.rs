@@ -34,11 +34,36 @@ pub fn run_viewer(article_id: &str) -> Result<()> {
     // Mark as read
     cache.mark_as_read(&article.id)?;
 
+    // Prepare content for display
+    let content = if let Some(ref content) = article.content {
+        html2text::from_read(content.as_bytes(), 80)
+    } else if let Some(ref desc) = article.description {
+        html2text::from_read(desc.as_bytes(), 80)
+    } else {
+        "No content available".to_string()
+    };
+
+    // Build full content with metadata
+    let mut full_content = String::new();
+    if let Some(ref author) = article.author {
+        full_content.push_str(&format!("Author: {}\n", author));
+    }
+    if let Some(ref published) = article.published {
+        full_content.push_str(&format!("Published: {}\n", published));
+    }
+    full_content.push_str(&format!("Link: {}\n", article.link));
+    full_content.push_str("\n────────────────────────────────────────\n\n");
+    full_content.push_str(&content);
+
+    // Split into lines for scrolling
+    let content_lines: Vec<String> = full_content.lines().map(String::from).collect();
+
     // Create app state
     let mut app = ViewerApp {
         article: article.clone(),
         scroll: 0,
         mode: ViewerMode::Reading,
+        content_lines,
     };
 
     // Run app
@@ -78,14 +103,20 @@ struct ViewerApp {
     article: crate::models::FeedItem,
     scroll: u16,
     mode: ViewerMode,
+    content_lines: Vec<String>,
 }
 
 fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut ViewerApp) -> io::Result<()> {
+    // Calculate max scroll based on content
+    let content_height = app.content_lines.len() as u16;
+
     loop {
         terminal.draw(|f| ui(f, app))?;
 
-        if let Event::Key(key) = event::read()? {
-            if key.kind == KeyEventKind::Press {
+        // Poll for events with a small timeout to keep UI responsive
+        if crossterm::event::poll(std::time::Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                // Don't check for Press/Release on older crossterm versions
                 match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
                     KeyCode::Char('o') => {
@@ -97,22 +128,31 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut View
                         return Ok(());
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
-                        app.scroll = app.scroll.saturating_add(1);
+                        let viewport_height = terminal.size()?.height.saturating_sub(7); // Account for header/footer
+                        let max_scroll = content_height.saturating_sub(viewport_height);
+                        if app.scroll < max_scroll {
+                            app.scroll = app.scroll.saturating_add(1);
+                        }
                     }
                     KeyCode::Char('k') | KeyCode::Up => {
                         app.scroll = app.scroll.saturating_sub(1);
                     }
-                    KeyCode::PageDown => {
-                        app.scroll = app.scroll.saturating_add(10);
+                    KeyCode::PageDown | KeyCode::Char(' ') => {
+                        let viewport_height = terminal.size()?.height.saturating_sub(7);
+                        let max_scroll = content_height.saturating_sub(viewport_height);
+                        app.scroll = (app.scroll + viewport_height).min(max_scroll);
                     }
                     KeyCode::PageUp => {
-                        app.scroll = app.scroll.saturating_sub(10);
+                        let viewport_height = terminal.size()?.height.saturating_sub(7);
+                        app.scroll = app.scroll.saturating_sub(viewport_height);
                     }
-                    KeyCode::Char('g') => {
+                    KeyCode::Char('g') | KeyCode::Home => {
                         app.scroll = 0;
                     }
-                    KeyCode::Char('G') => {
-                        app.scroll = 9999; // Will be clamped by widget
+                    KeyCode::Char('G') | KeyCode::End => {
+                        let viewport_height = terminal.size()?.height.saturating_sub(7);
+                        let max_scroll = content_height.saturating_sub(viewport_height);
+                        app.scroll = max_scroll;
                     }
                     _ => {}
                 }
@@ -169,37 +209,39 @@ fn render_header(f: &mut Frame, area: Rect, app: &ViewerApp) {
 }
 
 fn render_content(f: &mut Frame, area: Rect, app: &ViewerApp) {
-    // Convert HTML content to plain text if needed
-    let content = if let Some(ref content) = app.article.content {
-        // Use html2text to convert HTML to markdown-like text
-        html2text::from_read(content.as_bytes(), area.width as usize - 4)
-    } else if let Some(ref desc) = app.article.description {
-        html2text::from_read(desc.as_bytes(), area.width as usize - 4)
+    // Calculate visible range
+    let viewport_height = area.height as usize;
+    let start = app.scroll as usize;
+    let end = (start + viewport_height).min(app.content_lines.len());
+
+    // Get visible lines
+    let visible_lines: Vec<String> = if start < app.content_lines.len() {
+        app.content_lines[start..end].to_vec()
     } else {
-        "No content available".to_string()
+        vec![]
     };
 
-    // Add metadata at the top
-    let mut full_content = String::new();
+    // Join lines for display
+    let content = visible_lines.join("\n");
 
-    if let Some(ref author) = app.article.author {
-        full_content.push_str(&format!("Author: {}\n", author));
-    }
-    if let Some(ref published) = app.article.published {
-        full_content.push_str(&format!("Published: {}\n", published));
-    }
-    full_content.push_str(&format!("Link: {}\n", app.article.link));
-    full_content.push_str("\n────────────────────────────────────────\n\n");
-    full_content.push_str(&content);
+    // Add scroll indicator
+    let scroll_indicator = if app.content_lines.len() > viewport_height {
+        let current = app.scroll as usize + 1;
+        let total = app.content_lines.len();
+        format!(" [{}/{}] ", current, total)
+    } else {
+        String::new()
+    };
 
-    let paragraph = Paragraph::new(full_content)
+    let paragraph = Paragraph::new(content)
         .block(
             Block::default()
                 .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM)
-                .border_style(Style::default().fg(Color::Gray)),
+                .border_style(Style::default().fg(Color::Gray))
+                .title(scroll_indicator)
+                .title_alignment(Alignment::Right),
         )
-        .wrap(Wrap { trim: true })
-        .scroll((app.scroll, 0));
+        .wrap(Wrap { trim: false }); // Don't wrap since we pre-wrapped
 
     f.render_widget(paragraph, area);
 }

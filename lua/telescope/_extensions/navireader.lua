@@ -147,12 +147,14 @@ local function navireader_picker(opts)
           -- Start terminal with navireader TUI
           vim.fn.termopen(cmd, {
             on_exit = function()
-              vim.api.nvim_win_close(win, true)
+              if vim.api.nvim_win_is_valid(win) then
+                vim.api.nvim_win_close(win, true)
+              end
             end
           })
 
-          -- Enter insert mode to interact with TUI
-          vim.cmd("startinsert")
+          -- Stay in normal mode - TUI handles its own input
+          -- User can press 'i' if they need to interact differently
         end
       end)
 
