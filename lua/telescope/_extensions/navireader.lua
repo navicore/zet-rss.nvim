@@ -142,10 +142,14 @@ local function navireader_picker(opts)
             border = "rounded",
             title = " RSS Article Viewer ",
             title_pos = "center",
+            focusable = true,
           })
 
-          -- Start terminal with navireader TUI
-          vim.fn.termopen(cmd, {
+          -- Set current window to the floating window
+          vim.api.nvim_set_current_win(win)
+
+          -- Start terminal in the buffer
+          local term_id = vim.fn.termopen(cmd, {
             on_exit = function()
               if vim.api.nvim_win_is_valid(win) then
                 vim.api.nvim_win_close(win, true)
@@ -153,7 +157,7 @@ local function navireader_picker(opts)
             end
           })
 
-          -- Enter insert mode so TUI can capture keyboard input
+          -- Enter terminal mode to send keys to the terminal
           vim.cmd('startinsert')
         end
       end)

@@ -113,11 +113,10 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut View
     loop {
         terminal.draw(|f| ui(f, app))?;
 
-        // Read events directly without polling
+        // Read events (blocking)
         if let Event::Key(key) = event::read()? {
-            // Only handle key press events, ignore release events
-            if key.kind == KeyEventKind::Press {
-                match key.code {
+            // Handle all key events
+            match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
                     KeyCode::Char('o') => {
                         app.mode = ViewerMode::OpenBrowser;
@@ -155,7 +154,6 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut View
                         app.scroll = max_scroll;
                     }
                     _ => {}
-                }
             }
         }
     }
