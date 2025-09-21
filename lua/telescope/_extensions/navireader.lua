@@ -114,59 +114,55 @@ local function navireader_picker(opts)
       actions.select_default:replace(function()
         local selection = action_state.get_selected_entry()
         if selection then
-          actions.close(prompt_bufnr)
-
           local article = selection.value
           local navireader = require("navireader")
           local config = navireader.get_config()
-
-          -- Launch TUI viewer in floating terminal
-          local width = math.min(120, math.floor(vim.o.columns * 0.9))
-          local height = math.min(40, math.floor(vim.o.lines * 0.9))
-          local col = math.floor((vim.o.columns - width) / 2)
-          local row = math.floor((vim.o.lines - height) / 2)
 
           -- Build command
           local binary = config.navireader_bin or "navireader"
           local cmd = string.format("%s view --id %s", binary, vim.fn.shellescape(article.id))
 
-          -- Debug: Print the command being run
-          vim.notify("Running: " .. cmd, vim.log.levels.INFO)
+          -- Close telescope
+          actions.close(prompt_bufnr)
 
-          -- Create floating window with terminal
-          local buf = vim.api.nvim_create_buf(false, true)
+          -- Use vim.schedule to ensure we open terminal after telescope closes
+          vim.schedule(function()
+            -- Launch TUI viewer in floating terminal
+            local width = math.min(120, math.floor(vim.o.columns * 0.9))
+            local height = math.min(40, math.floor(vim.o.lines * 0.9))
+            local col = math.floor((vim.o.columns - width) / 2)
+            local row = math.floor((vim.o.lines - height) / 2)
 
-          local opts = {
-            relative = "editor",
-            width = width,
-            height = height,
-            col = col,
-            row = row,
-            style = "minimal",
-            border = "rounded",
-            title = " RSS Article Viewer ",
-            title_pos = "center",
-          }
+            -- Create buffer
+            local buf = vim.api.nvim_create_buf(false, true)
 
-          local win = vim.api.nvim_open_win(buf, true, opts)
+            -- Create floating window
+            local win = vim.api.nvim_open_win(buf, true, {
+              relative = "editor",
+              width = width,
+              height = height,
+              col = col,
+              row = row,
+              style = "minimal",
+              border = "rounded",
+              title = " RSS Article Viewer ",
+              title_pos = "center",
+            })
 
-          -- Start terminal in the buffer with auto-close on exit
-          local job_id = vim.fn.termopen(cmd, {
-            on_exit = function(_, exit_code, _)
-              -- Close the window when process exits
-              vim.schedule(function()
-                if vim.api.nvim_win_is_valid(win) then
-                  vim.api.nvim_win_close(win, true)
-                end
-              end)
-            end,
-          })
+            -- Start the terminal in the buffer
+            local job_id = vim.fn.termopen(cmd, {
+              on_exit = function()
+                vim.schedule(function()
+                  if vim.api.nvim_win_is_valid(win) then
+                    vim.api.nvim_win_close(win, true)
+                  end
+                end)
+              end
+            })
 
-          -- Enter insert mode so terminal gets keyboard input
-          vim.cmd('startinsert')
-
-          -- Set up keymap to exit terminal mode with Esc
-          vim.api.nvim_buf_set_keymap(buf, 't', '<Esc>', '<C-\\><C-n>', { noremap = true })
+            -- Enter insert mode
+            vim.cmd('startinsert')
+          end)
         end
       end)
 
