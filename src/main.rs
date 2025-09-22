@@ -36,6 +36,7 @@ enum Commands {
     MarkRead {
         id: String,
     },
+    MarkAllRead,
 }
 
 #[tokio::main]
@@ -130,6 +131,21 @@ async fn main() -> Result<()> {
             let cache = cache::TextCache::new()?;
             cache.mark_as_read(&id)?;
             println!("Article marked as read");
+        }
+        Commands::MarkAllRead => {
+            // Mark all unread articles as read
+            let cache = cache::TextCache::new()?;
+            let articles = cache.get_articles(None)?;
+            let mut count = 0;
+
+            for article in articles {
+                if !article.read {
+                    cache.mark_as_read(&article.id)?;
+                    count += 1;
+                }
+            }
+
+            println!("Marked {} articles as read", count);
         }
     }
 

@@ -74,10 +74,11 @@ NaviReader uses a single command with subcommands:
 :NaviReader all          " Browse all articles including read ones
 :NaviReader search       " Search articles
 :NaviReader starred      " Browse starred articles
-:NaviReader scan         " Scan your Zettelkasten for RSS feed URLs
-:NaviReader fetch        " Fetch new articles from all feeds
-:NaviReader update       " Rescan notes and fetch new articles
-:NaviReader clear-cache  " Clear all cached data (with confirmation)
+:NaviReader scan          " Scan your Zettelkasten for RSS feed URLs
+:NaviReader fetch         " Fetch new articles from all feeds
+:NaviReader update        " Rescan notes and fetch new articles
+:NaviReader mark-all-read " Mark all unread articles as read
+:NaviReader clear-cache   " Clear all cached data (with confirmation)
 ```
 
 ### Telescope Commands (Alternative)

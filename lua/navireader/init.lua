@@ -56,6 +56,8 @@ function M.setup(opts)
       require('telescope').extensions.navireader.starred()
     elseif subcommand == "clear-cache" then
       M.clear_cache()
+    elseif subcommand == "mark-all-read" then
+      M.mark_all_read()
     else
       vim.notify("Unknown subcommand: " .. subcommand .. "\n\nAvailable subcommands:\n" ..
         "  browse (default) - Browse unread articles\n" ..
@@ -65,6 +67,7 @@ function M.setup(opts)
         "  scan             - Scan Zettelkasten for RSS feeds\n" ..
         "  fetch            - Fetch RSS articles\n" ..
         "  update           - Rescan and fetch new articles\n" ..
+        "  mark-all-read    - Mark all unread articles as read\n" ..
         "  clear-cache      - Clear all cached data",
         vim.log.levels.ERROR)
     end
@@ -81,6 +84,7 @@ function M.setup(opts)
         "scan",
         "fetch",
         "update",
+        "mark-all-read",
         "clear-cache"
       })
     end,
@@ -164,6 +168,50 @@ function M.fetch(update)
       end
     end,
   })
+end
+
+function M.mark_all_read()
+  -- Count unread articles first
+  local articles = require("navireader.articles")
+  local all_articles = articles.get_articles(nil, {show_read = false})
+  local unread_count = 0
+
+  for _, article in ipairs(all_articles) do
+    if not article.read then
+      unread_count = unread_count + 1
+    end
+  end
+
+  if unread_count == 0 then
+    vim.notify("No unread articles to mark as read.", vim.log.levels.INFO)
+    return
+  end
+
+  -- Confirm with user
+  local message = string.format(
+    "Mark %d unread articles as read? (y/N): ",
+    unread_count
+  )
+
+  vim.ui.input({ prompt = message }, function(input)
+    if input and (input:lower() == "y" or input:lower() == "yes") then
+      -- Call the Rust backend to mark all as read
+      local binary = config.navireader_bin or "navireader"
+      local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s mark-all-read 2>&1",
+        vim.fn.shellescape(config.navireader_path),
+        binary)
+
+      local result = vim.fn.system(cmd)
+
+      if vim.v.shell_error == 0 then
+        vim.notify(string.format("Marked %d articles as read.", unread_count), vim.log.levels.INFO)
+      else
+        vim.notify("Failed to mark articles as read: " .. result, vim.log.levels.ERROR)
+      end
+    else
+      vim.notify("Cancelled.", vim.log.levels.INFO)
+    end
+  end)
 end
 
 function M.clear_cache()
