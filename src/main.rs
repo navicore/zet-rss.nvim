@@ -7,6 +7,9 @@ mod viewer;
 use clap::{Parser, Subcommand};
 use anyhow::Result;
 use tracing_subscriber;
+use futures::stream::{self, StreamExt};
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 #[derive(Parser)]
 #[command(name = "navireader")]
@@ -77,18 +80,42 @@ async fn main() -> Result<()> {
                 cache.get_feed_list()?
             };
 
-            for feed_url in feeds {
-                println!("Fetching: {}", feed_url);
-                match fetcher::fetch_feed(&feed_url).await {
-                    Ok(feed_data) => {
-                        cache.store_feed(&feed_data)?;
-                        println!("  ✓ Stored {} items", feed_data.items.len());
-                    }
-                    Err(e) => {
-                        eprintln!("  ✗ Failed: {}", e);
+            // Concurrent fetching with rate limiting (max 5 concurrent fetches)
+            const MAX_CONCURRENT_FETCHES: usize = 5;
+            let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_FETCHES));
+            // Arc is necessary here to share the cache safely across async tasks
+            let cache = Arc::new(cache);
+
+            println!("Fetching {} feeds (up to {} concurrently)...", feeds.len(), MAX_CONCURRENT_FETCHES);
+
+            let fetch_tasks = feeds.into_iter().map(|feed_url| {
+                let sem = semaphore.clone();
+                let cache = cache.clone();
+                async move {
+                    let _permit = sem.acquire().await.unwrap();
+                    println!("  Fetching: {}", feed_url);
+                    match fetcher::fetch_feed(&feed_url).await {
+                        Ok(feed_data) => {
+                            let item_count = feed_data.items.len();
+                            match cache.store_feed(&feed_data) {
+                                Ok(_) => println!("    ✓ Stored {} items", item_count),
+                                Err(e) => eprintln!("    ✗ Failed to store: {}", e),
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("    ✗ Failed to fetch: {}", e);
+                        }
                     }
                 }
-            }
+            });
+
+            // Execute all fetches concurrently
+            stream::iter(fetch_tasks)
+                .buffer_unordered(MAX_CONCURRENT_FETCHES)
+                .collect::<Vec<_>>()
+                .await;
+
+            println!("\nFeed fetching complete!");
         }
         Commands::View { id } => {
             // Launch the TUI viewer

@@ -3,6 +3,14 @@ name = "navireader"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "navireader"
+path = "src/lib.rs"
+
+[[bin]]
+name = "navireader"
+path = "src/main.rs"
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.11", features = ["json"] }
@@ -22,3 +30,7 @@ crossterm = "0.27"
 unicode-width = "0.1"
 textwrap = "0.16"
 html2text = "0.12"
+futures = "0.3"
+
+[dev-dependencies]
+tempfile = "3.8"

@@ -4,6 +4,9 @@ use std::collections::HashSet;
 use std::fs;
 use walkdir::WalkDir;
 
+/// Scans a directory recursively for markdown files containing RSS feed URLs
+/// Looks for URLs marked with 'rss:', 'feed:', in YAML frontmatter, or with RSS-like extensions
+/// Returns a deduplicated list of feed URLs
 pub async fn scan_markdown_for_feeds(zet_path: &str) -> Result<Vec<String>> {
     let mut feeds = HashSet::new();
 

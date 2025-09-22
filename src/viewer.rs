@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, Context};
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -15,6 +15,8 @@ use ratatui::{
 use std::io;
 use crate::cache::TextCache;
 
+/// Runs the TUI article viewer for the specified article
+/// Returns an exit code: 0=normal, 1=open browser, 2=create note
 pub fn run_viewer(article_id: &str) -> Result<i32> {
 
     // Setup terminal
@@ -25,15 +27,15 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
     let mut terminal = Terminal::new(backend)?;
 
     // Load article
-    let cache = TextCache::new()?;
-    let articles = cache.get_articles(None)?;
-    let article = articles
-        .into_iter()
-        .find(|a| a.id == article_id)
-        .ok_or_else(|| anyhow::anyhow!("Article not found: {}", article_id))?;
+    let cache = TextCache::new()
+        .context("Failed to initialize article cache")?;
+    let article = cache.get_article_by_id(article_id)
+        .with_context(|| format!("Failed to load article {}", article_id))?
+        .ok_or_else(|| anyhow::anyhow!("Article not found: {}. Try running 'NaviReader fetch' to update articles.", article_id))?;
 
     // Mark as read
-    cache.mark_as_read(&article.id)?;
+    cache.mark_as_read(&article.id)
+        .with_context(|| format!("Failed to mark article {} as read", article_id))?;
 
     // Prepare content for display
     let content = if let Some(ref content) = article.content {
@@ -87,13 +89,23 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
         ViewerMode::Reading => 0,
         ViewerMode::OpenBrowser => {
             // Write URL to a temp file for Lua to read
-            let _ = std::fs::write("/tmp/navireader_open_url.txt", &article.link);
+            // Use unique temp file to avoid race conditions
+            let temp_dir = std::env::temp_dir();
+            let pid = std::process::id();
+            let temp_file = temp_dir.join(format!("navireader_open_url_{}.txt", pid));
+            std::fs::write(&temp_file, &article.link)
+                .context("Failed to write URL to temp file")?;
             1
         }
         ViewerMode::CreateNote => {
             // Create the note and write path to temp file
             if let Ok(note_path) = create_note_from_article(&article) {
-                let _ = std::fs::write("/tmp/navireader_note_path.txt", &note_path);
+                // Use unique temp file to avoid race conditions
+                let temp_dir = std::env::temp_dir();
+                let pid = std::process::id();
+                let temp_file = temp_dir.join(format!("navireader_note_path_{}.txt", pid));
+                std::fs::write(&temp_file, &note_path)
+                    .context("Failed to write note path to temp file")?;
             }
             2
         }

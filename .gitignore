@@ -4,6 +4,7 @@ Cargo.lock
 
 # Compiled binary (built on user's machine)
 /lua/navireader/bin/
+/bin/
 
 # Editor files
 *.swp
