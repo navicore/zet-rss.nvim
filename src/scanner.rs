@@ -68,8 +68,10 @@ pub async fn scan_markdown_for_feeds(zet_path: &str) -> Result<Vec<String>> {
         for cap in feed_path_regex.captures_iter(&content) {
             if let Some(url) = cap.get(1) {
                 let url_str = url.as_str();
-                // Only include if it ends with /feed, /rss, or /atom (not followed by more path segments)
-                if url_str.ends_with("/feed") || url_str.ends_with("/rss") || url_str.ends_with("/atom") ||
+                // Only include if it ends with /feed, /rss, or /atom (with or without trailing slash)
+                if url_str.ends_with("/feed") || url_str.ends_with("/feed/") ||
+                   url_str.ends_with("/rss") || url_str.ends_with("/rss/") ||
+                   url_str.ends_with("/atom") || url_str.ends_with("/atom/") ||
                    url_str.contains("/feed?") || url_str.contains("/rss?") || url_str.contains("/atom?") {
                     feeds.insert(url_str.to_string());
                 }
