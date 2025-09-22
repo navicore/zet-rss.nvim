@@ -262,33 +262,6 @@ local function navireader_picker(opts)
       -- Replace default action
       actions.select_default:replace(open_in_viewer)
 
-      -- Mark article as read without leaving Telescope
-      map("i", "<Tab>", function()
-        local selection = action_state.get_selected_entry()
-        if selection then
-          local article = selection.value
-          local navireader = require("navireader")
-          local config = navireader.get_config()
-
-          -- Mark as read using the Lua module directly
-          local articles = require("navireader.articles")
-          local success = articles.mark_as_read(article.id)
-
-          -- Update the display to show it's read
-          if success then
-            -- Update the article's read status
-            article.read = true
-
-            -- Get current picker and refresh
-            local current_picker = action_state.get_current_picker(prompt_bufnr)
-
-            -- Update the entry display by refreshing the finder
-            current_picker:refresh()
-
-            vim.notify("Marked as read: " .. article.title:sub(1, 50), vim.log.levels.INFO)
-          end
-        end
-      end)
 
       -- Keep C-n since you said it works
       map("i", "<C-n>", function()

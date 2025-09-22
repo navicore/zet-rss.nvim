@@ -92,8 +92,7 @@ NaviReader uses a single command with subcommands:
 ### Keyboard Shortcuts
 
 **In Telescope browser:**
-- `<CR>` - Open article in TUI viewer
-- `<Tab>` - Mark article as read without leaving Telescope
+- `<CR>` - Open article in TUI viewer (marks as read automatically)
 - `<C-n>` - Create a Zettelkasten note from article
 
 **In TUI viewer:**
