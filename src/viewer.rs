@@ -1,4 +1,5 @@
 use anyhow::{Result, Context};
+use uuid::Uuid;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -12,12 +13,17 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame, Terminal,
 };
-use std::io;
+use std::io::{self, Write};
+use std::fs::OpenOptions;
+use std::os::unix::fs::OpenOptionsExt;
 use crate::cache::TextCache;
 
 /// Runs the TUI article viewer for the specified article
 /// Returns an exit code: 0=normal, 1=open browser, 2=create note
 pub fn run_viewer(article_id: &str) -> Result<i32> {
+    // Get session ID from environment or generate new one
+    let session_id = std::env::var("NAVIREADER_SESSION_ID")
+        .unwrap_or_else(|_| Uuid::new_v4().to_string());
 
     // Setup terminal
     enable_raw_mode()?;
@@ -89,21 +95,45 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
         ViewerMode::Reading => 0,
         ViewerMode::OpenBrowser => {
             // Write URL to a temp file for Lua to read
-            // Use temp directory for communication
+            // Use session-specific temp file to avoid race conditions
             let temp_dir = std::env::temp_dir();
-            let temp_file = temp_dir.join("navireader_open_url.txt");
-            std::fs::write(&temp_file, &article.link)
+            let temp_file = temp_dir.join(format!("navireader_open_url_{}.txt", session_id));
+
+            // Write with restrictive permissions
+            let mut file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .mode(0o600)  // Only owner can read/write
+                .open(&temp_file)
+                .context("Failed to create temp file for URL")?;
+
+            file.write_all(article.link.as_bytes())
                 .context("Failed to write URL to temp file")?;
+            file.sync_all()
+                .context("Failed to sync URL file to disk")?;
             1
         }
         ViewerMode::CreateNote => {
             // Create the note and write path to temp file
             if let Ok(note_path) = create_note_from_article(&article) {
-                // Use temp directory for communication
+                // Use session-specific temp file to avoid race conditions
                 let temp_dir = std::env::temp_dir();
-                let temp_file = temp_dir.join("navireader_note_path.txt");
-                std::fs::write(&temp_file, &note_path)
+                let temp_file = temp_dir.join(format!("navireader_note_path_{}.txt", session_id));
+
+                // Write with restrictive permissions
+                let mut file = OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .mode(0o600)  // Only owner can read/write
+                    .open(&temp_file)
+                    .context("Failed to create temp file for note path")?;
+
+                file.write_all(note_path.as_bytes())
                     .context("Failed to write note path to temp file")?;
+                file.sync_all()
+                    .context("Failed to sync note path file to disk")?;
             }
             2
         }

@@ -172,10 +172,15 @@ local function navireader_picker(opts)
 
         -- Build command with environment variable using env command
         local binary = config.navireader_bin or "navireader"
-        -- Store PID for temp file coordination
-        local temp_file_pid = nil
-        local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s view --id %s",
+        -- Generate unique session ID for temp file coordination
+        local session_id = vim.fn.system("uuidgen"):gsub("\n", "")
+        if session_id == "" then
+          -- Fallback if uuidgen is not available
+          session_id = tostring(os.time()) .. "-" .. tostring(math.random(1000000))
+        end
+        local cmd = string.format("env NAVIREADER_DATA_DIR=%s NAVIREADER_SESSION_ID=%s %s view --id %s",
           vim.fn.shellescape(config.navireader_path),
+          vim.fn.shellescape(session_id),
           binary,
           vim.fn.shellescape(article.id))
 
@@ -220,22 +225,28 @@ local function navireader_picker(opts)
                 -- Handle exit codes
                 if exit_code == 1 then
                   -- Open browser
-                  -- Use proper temp directory without PID (simpler approach)
+                  -- Use session-specific temp file
                   local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
-                  local url_file = io.open(temp_dir .. "navireader_open_url.txt", "r")
+                  local temp_file_path = temp_dir .. "navireader_open_url_" .. session_id .. ".txt"
+                  local url_file = io.open(temp_file_path, "r")
                   if url_file then
                     local url = url_file:read("*a")
                     url_file:close()
+                    -- Clean up temp file after reading
+                    os.remove(temp_file_path)
                     vim.fn.system("open " .. vim.fn.shellescape(url))
                   end
                 elseif exit_code == 2 then
                   -- Open note
-                  -- Use proper temp directory without PID (simpler approach)
+                  -- Use session-specific temp file
                   local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
-                  local note_file = io.open(temp_dir .. "navireader_note_path.txt", "r")
+                  local temp_file_path = temp_dir .. "navireader_note_path_" .. session_id .. ".txt"
+                  local note_file = io.open(temp_file_path, "r")
                   if note_file then
                     local note_path = note_file:read("*a")
                     note_file:close()
+                    -- Clean up temp file after reading
+                    os.remove(temp_file_path)
                     vim.cmd("edit " .. vim.fn.fnameescape(note_path))
                   end
                 end
