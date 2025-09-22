@@ -33,6 +33,9 @@ enum Commands {
         #[arg(short, long)]
         id: String,
     },
+    MarkRead {
+        id: String,
+    },
 }
 
 #[tokio::main]
@@ -121,6 +124,12 @@ async fn main() -> Result<()> {
             // Launch the TUI viewer
             let exit_code = viewer::run_viewer(&id)?;
             std::process::exit(exit_code);
+        }
+        Commands::MarkRead { id } => {
+            // Mark article as read
+            let cache = cache::TextCache::new()?;
+            cache.mark_as_read(&id)?;
+            println!("Article marked as read");
         }
     }
 

@@ -93,6 +93,7 @@ NaviReader uses a single command with subcommands:
 
 **In Telescope browser:**
 - `<CR>` - Open article in TUI viewer
+- `<C-r>` - Mark article as read (without leaving Telescope)
 - `<C-n>` - Create a Zettelkasten note from article
 
 **In TUI viewer:**
