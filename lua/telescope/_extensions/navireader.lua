@@ -263,25 +263,19 @@ local function navireader_picker(opts)
       actions.select_default:replace(open_in_viewer)
 
       -- Mark article as read without leaving Telescope
-      map("i", "<C-r>", function()
+      map("i", "<Tab>", function()
         local selection = action_state.get_selected_entry()
         if selection then
           local article = selection.value
           local navireader = require("navireader")
           local config = navireader.get_config()
 
-          -- Build command to mark as read
-          local binary = config.navireader_bin or "navireader"
-          local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s mark-read %s 2>&1",
-            vim.fn.shellescape(config.navireader_path),
-            binary,
-            vim.fn.shellescape(article.id))
-
-          -- Execute command
-          local result = vim.fn.system(cmd)
+          -- Mark as read using the Lua module directly
+          local articles = require("navireader.articles")
+          local success = articles.mark_as_read(article.id)
 
           -- Update the display to show it's read
-          if vim.v.shell_error == 0 then
+          if success then
             -- Update the article's read status
             article.read = true
 
@@ -292,8 +286,6 @@ local function navireader_picker(opts)
             current_picker:refresh()
 
             vim.notify("Marked as read: " .. article.title:sub(1, 50), vim.log.levels.INFO)
-          else
-            vim.notify("Failed to mark as read: " .. result, vim.log.levels.ERROR)
           end
         end
       end)

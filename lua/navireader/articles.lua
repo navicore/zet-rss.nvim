@@ -103,6 +103,26 @@ function M.get_articles(limit, options)
   return articles
 end
 
+-- Mark article as read
+function M.mark_as_read(article_id)
+  local config = require("navireader").get_config()
+  local binary = config.navireader_bin or "navireader"
+
+  local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s mark-read %s 2>&1",
+    vim.fn.shellescape(config.navireader_path),
+    binary,
+    vim.fn.shellescape(article_id))
+
+  local result = vim.fn.system(cmd)
+
+  if vim.v.shell_error == 0 then
+    return true
+  else
+    vim.notify("Failed to mark as read: " .. result, vim.log.levels.ERROR)
+    return false
+  end
+end
+
 -- Search articles
 function M.search_articles(query)
   local articles = M.get_articles()
