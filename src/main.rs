@@ -83,6 +83,7 @@ async fn main() -> Result<()> {
             // Concurrent fetching with rate limiting (max 5 concurrent fetches)
             const MAX_CONCURRENT_FETCHES: usize = 5;
             let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_FETCHES));
+            // Arc is necessary here to share the cache safely across async tasks
             let cache = Arc::new(cache);
 
             println!("Fetching {} feeds (up to {} concurrently)...", feeds.len(), MAX_CONCURRENT_FETCHES);

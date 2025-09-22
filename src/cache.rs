@@ -3,6 +3,10 @@ use crate::models::{Feed, FeedItem};
 use chrono::{Utc, DateTime};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+#[cfg(test)]
+#[path = "cache_tests.rs"]
+mod tests;
 use serde_json;
 
 /// Text-based cache for RSS articles and feeds
@@ -151,11 +155,21 @@ starred: false
 
     /// Get a single article by ID with O(1) lookup
     pub fn get_article_by_id(&self, article_id: &str) -> Result<Option<FeedItem>> {
-        let article_path = self.articles_dir.join(format!("{}.md", article_id));
-        if !article_path.exists() {
-            return Ok(None);
+        // Articles are stored with timestamp prefix, so we need to search for files ending with the ID
+        let pattern = format!("*-{}.md", sanitize_filename(article_id));
+
+        for entry in fs::read_dir(&self.articles_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if let Some(file_name) = path.file_name() {
+                let file_name = file_name.to_string_lossy();
+                if file_name.ends_with(&format!("-{}.md", sanitize_filename(article_id))) {
+                    return self.parse_article_file(&path).map(Some);
+                }
+            }
         }
-        self.parse_article_file(&article_path).map(Some)
+
+        Ok(None)
     }
 
     fn parse_article_file(&self, path: &Path) -> Result<FeedItem> {
@@ -234,11 +248,21 @@ starred: false
     /// Toggles the starred status of an article
     /// Updates the YAML frontmatter in the article file
     pub fn toggle_star(&self, item_id: &str) -> Result<()> {
-        // Direct O(1) file access using article ID as filename
-        let article_path = self.articles_dir.join(format!("{}.md", item_id));
-        if !article_path.exists() {
-            return Err(anyhow::anyhow!("Article not found: {}", item_id));
+        // Find the article file that ends with the ID
+        let mut article_path = None;
+        for entry in fs::read_dir(&self.articles_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if let Some(file_name) = path.file_name() {
+                let file_name = file_name.to_string_lossy();
+                if file_name.ends_with(&format!("-{}.md", sanitize_filename(item_id))) {
+                    article_path = Some(path);
+                    break;
+                }
+            }
         }
+
+        let article_path = article_path.ok_or_else(|| anyhow::anyhow!("Article not found: {}", item_id))?;
 
         let content = fs::read_to_string(&article_path)
             .with_context(|| format!("Failed to read article {}", item_id))?;
@@ -249,11 +273,21 @@ starred: false
     }
 
     fn update_article_state(&self, item_id: &str, field: &str, value: &str) -> Result<()> {
-        // Direct O(1) file access using article ID as filename
-        let article_path = self.articles_dir.join(format!("{}.md", item_id));
-        if !article_path.exists() {
-            return Err(anyhow::anyhow!("Article not found: {}", item_id));
+        // Find the article file that ends with the ID
+        let mut article_path = None;
+        for entry in fs::read_dir(&self.articles_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if let Some(file_name) = path.file_name() {
+                let file_name = file_name.to_string_lossy();
+                if file_name.ends_with(&format!("-{}.md", sanitize_filename(item_id))) {
+                    article_path = Some(path);
+                    break;
+                }
+            }
         }
+
+        let article_path = article_path.ok_or_else(|| anyhow::anyhow!("Article not found: {}", item_id))?;
 
         let content = fs::read_to_string(&article_path)
             .with_context(|| format!("Failed to read article {}", item_id))?;

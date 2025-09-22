@@ -89,9 +89,10 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
         ViewerMode::Reading => 0,
         ViewerMode::OpenBrowser => {
             // Write URL to a temp file for Lua to read
-            // Use atomic write with proper temp directory
+            // Use unique temp file to avoid race conditions
             let temp_dir = std::env::temp_dir();
-            let temp_file = temp_dir.join("navireader_open_url.txt");
+            let pid = std::process::id();
+            let temp_file = temp_dir.join(format!("navireader_open_url_{}.txt", pid));
             std::fs::write(&temp_file, &article.link)
                 .context("Failed to write URL to temp file")?;
             1
@@ -99,9 +100,10 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
         ViewerMode::CreateNote => {
             // Create the note and write path to temp file
             if let Ok(note_path) = create_note_from_article(&article) {
-                // Use atomic write with proper temp directory
+                // Use unique temp file to avoid race conditions
                 let temp_dir = std::env::temp_dir();
-                let temp_file = temp_dir.join("navireader_note_path.txt");
+                let pid = std::process::id();
+                let temp_file = temp_dir.join(format!("navireader_note_path_{}.txt", pid));
                 std::fs::write(&temp_file, &note_path)
                     .context("Failed to write note path to temp file")?;
             }

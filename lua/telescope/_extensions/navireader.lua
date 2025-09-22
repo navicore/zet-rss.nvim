@@ -172,6 +172,8 @@ local function navireader_picker(opts)
 
         -- Build command with environment variable using env command
         local binary = config.navireader_bin or "navireader"
+        -- Store PID for temp file coordination
+        local temp_file_pid = nil
         local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s view --id %s",
           vim.fn.shellescape(config.navireader_path),
           binary,
@@ -208,19 +210,22 @@ local function navireader_picker(opts)
           })
 
           -- Start terminal
-          vim.fn.termopen(cmd, {
-            on_exit = function(_, exit_code)
+          local job_id = vim.fn.termopen(cmd, {
+            on_exit = function(job_id, exit_code)
               vim.schedule(function()
                 if vim.api.nvim_win_is_valid(win) then
                   vim.api.nvim_win_close(win, true)
                 end
 
+                -- Get PID from job to match temp files
+                local pid = vim.fn.jobpid(job_id)
+
                 -- Handle exit codes
                 if exit_code == 1 then
                   -- Open browser
-                  -- Use proper temp directory
+                  -- Use proper temp directory with PID
                   local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
-                  local url_file = io.open(temp_dir .. "navireader_open_url.txt", "r")
+                  local url_file = io.open(temp_dir .. "navireader_open_url_" .. pid .. ".txt", "r")
                   if url_file then
                     local url = url_file:read("*a")
                     url_file:close()
@@ -228,9 +233,9 @@ local function navireader_picker(opts)
                   end
                 elseif exit_code == 2 then
                   -- Open note
-                  -- Use proper temp directory
+                  -- Use proper temp directory with PID
                   local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
-                  local note_file = io.open(temp_dir .. "navireader_note_path.txt", "r")
+                  local note_file = io.open(temp_dir .. "navireader_note_path_" .. pid .. ".txt", "r")
                   if note_file then
                     local note_path = note_file:read("*a")
                     note_file:close()
