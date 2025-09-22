@@ -218,7 +218,9 @@ local function navireader_picker(opts)
                 -- Handle exit codes
                 if exit_code == 1 then
                   -- Open browser
-                  local url_file = io.open("/tmp/navireader_open_url.txt", "r")
+                  -- Use proper temp directory
+                  local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
+                  local url_file = io.open(temp_dir .. "navireader_open_url.txt", "r")
                   if url_file then
                     local url = url_file:read("*a")
                     url_file:close()
@@ -226,7 +228,9 @@ local function navireader_picker(opts)
                   end
                 elseif exit_code == 2 then
                   -- Open note
-                  local note_file = io.open("/tmp/navireader_note_path.txt", "r")
+                  -- Use proper temp directory
+                  local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
+                  local note_file = io.open(temp_dir .. "navireader_note_path.txt", "r")
                   if note_file then
                     local note_path = note_file:read("*a")
                     note_file:close()

@@ -4,6 +4,9 @@ use reqwest;
 use crate::models::{Feed, FeedItem};
 use chrono::Utc;
 
+/// Fetches an RSS/Atom feed from the given URL
+/// Parses the feed and converts it to our internal Feed model
+/// Returns an error if the fetch fails or the feed is invalid
 pub async fn fetch_feed(url: &str) -> Result<Feed> {
     let client = reqwest::Client::builder()
         .user_agent("NaviReader/0.1")
