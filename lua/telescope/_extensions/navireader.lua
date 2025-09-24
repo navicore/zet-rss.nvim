@@ -38,6 +38,7 @@ end
 
 local function navireader_picker(opts)
   opts = opts or {}
+  local picker_type = opts.picker_type or "unread"
 
   local articles_module = require("navireader.articles")
   local articles
@@ -223,7 +224,20 @@ local function navireader_picker(opts)
                 end
 
                 -- Handle exit codes
-                if exit_code == 1 then
+                if exit_code == 0 then
+                  -- Normal exit - reopen Telescope
+                  vim.defer_fn(function()
+                    if picker_type == "all" then
+                      require('telescope').extensions.navireader.all()
+                    elseif picker_type == "starred" then
+                      require('telescope').extensions.navireader.starred()
+                    elseif picker_type == "search" then
+                      require('telescope').extensions.navireader.search()
+                    else
+                      require('telescope').extensions.navireader.navireader()
+                    end
+                  end, 50)
+                elseif exit_code == 1 then
                   -- Open browser
                   -- Use session-specific temp file
                   local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
@@ -352,7 +366,7 @@ function M.starred(opts)
 
   opts = opts or {}
   opts.prompt_title = "Starred Articles"
-  navireader_picker(vim.tbl_extend("force", opts, { articles = starred }))
+  navireader_picker(vim.tbl_extend("force", opts, { articles = starred, picker_type = "starred" }))
 end
 
 return require("telescope").register_extension({
