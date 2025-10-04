@@ -215,10 +215,38 @@ local function navireader_picker(opts)
             title_pos = "center",
           })
 
+          -- Create autocommand group for cleanup
+          local augroup = vim.api.nvim_create_augroup("NaviReaderTerminal_" .. buf, { clear = true })
+
+          -- Set up autocommand to re-enter terminal mode when window gains focus
+          vim.api.nvim_create_autocmd("WinEnter", {
+            group = augroup,
+            buffer = buf,
+            callback = function()
+              if vim.api.nvim_get_current_win() == win then
+                vim.cmd('startinsert')
+              end
+            end,
+          })
+
+          -- Also handle FocusGained for when returning from another desktop
+          vim.api.nvim_create_autocmd("FocusGained", {
+            group = augroup,
+            buffer = buf,
+            callback = function()
+              if vim.api.nvim_win_is_valid(win) and vim.api.nvim_get_current_win() == win then
+                vim.cmd('startinsert')
+              end
+            end,
+          })
+
           -- Start terminal
           local job_id = vim.fn.termopen(cmd, {
             on_exit = function(_, exit_code)
               vim.schedule(function()
+                -- Clean up autocommands
+                vim.api.nvim_del_augroup_by_name("NaviReaderTerminal_" .. buf)
+
                 if vim.api.nvim_win_is_valid(win) then
                   vim.api.nvim_win_close(win, true)
                 end
