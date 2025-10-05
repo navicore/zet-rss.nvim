@@ -47,8 +47,29 @@ impl TextCache {
     /// Stores a feed's articles to disk
     /// Each article is saved as a separate markdown file
     pub fn store_feed(&self, feed: &Feed) -> Result<()> {
+        // Check for duplicate IDs in the feed
+        let mut seen_ids = std::collections::HashSet::new();
+
         for item in &feed.items {
-            self.store_article(item)?;
+            // Check if ID already exists in cache
+            if let Ok(Some(_)) = self.get_article_by_id(&item.id) {
+                // Article with this ID already exists, skip it
+                continue;
+            }
+
+            // Check if we've seen this ID in the current feed batch
+            let mut unique_id = item.id.clone();
+            let mut counter = 1;
+            while seen_ids.contains(&unique_id) {
+                unique_id = format!("{}-{}", item.id, counter);
+                counter += 1;
+            }
+            seen_ids.insert(unique_id.clone());
+
+            // Store with potentially modified ID
+            let mut item_to_store = item.clone();
+            item_to_store.id = unique_id;
+            self.store_article(&item_to_store)?;
         }
 
         let feed_meta_path = self.base_dir
