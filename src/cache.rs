@@ -155,17 +155,13 @@ starred: false
 
     /// Get a single article by ID with O(1) lookup
     pub fn get_article_by_id(&self, article_id: &str) -> Result<Option<FeedItem>> {
-        // Articles are stored with timestamp prefix, so we need to search for files ending with the ID
-        let pattern = format!("*-{}.md", sanitize_filename(article_id));
+        // We need to read all articles and match by the ID in the frontmatter, not filename
+        // because filenames can have collisions (e.g., newsletter vs 2020/newsletter)
+        let articles = self.get_articles(None)?;
 
-        for entry in fs::read_dir(&self.articles_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if let Some(file_name) = path.file_name() {
-                let file_name = file_name.to_string_lossy();
-                if file_name.ends_with(&format!("-{}.md", sanitize_filename(article_id))) {
-                    return self.parse_article_file(&path).map(Some);
-                }
+        for article in articles {
+            if article.id == article_id {
+                return Ok(Some(article));
             }
         }
 
@@ -273,16 +269,18 @@ starred: false
     }
 
     fn update_article_state(&self, item_id: &str, field: &str, value: &str) -> Result<()> {
-        // Find the article file that ends with the ID
+        // Find the article file by reading and matching the ID in frontmatter
         let mut article_path = None;
         for entry in fs::read_dir(&self.articles_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if let Some(file_name) = path.file_name() {
-                let file_name = file_name.to_string_lossy();
-                if file_name.ends_with(&format!("-{}.md", sanitize_filename(item_id))) {
-                    article_path = Some(path);
-                    break;
+            if path.extension().map_or(false, |ext| ext == "md") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    // Check if this file contains the matching ID in frontmatter
+                    if content.lines().any(|line| line.trim() == format!("id: {}", item_id)) {
+                        article_path = Some(path);
+                        break;
+                    }
                 }
             }
         }
