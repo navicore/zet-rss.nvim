@@ -219,9 +219,11 @@ local function navireader_picker(opts)
           local augroup_name = "NaviReaderTerminal_" .. buf
           local ok, augroup = pcall(vim.api.nvim_create_augroup, augroup_name, { clear = true })
 
-          if ok then
+          if not ok then
+            vim.notify("NaviReader: Failed to create augroup: " .. tostring(augroup), vim.log.levels.ERROR)
+          else
             -- Set up autocommand to re-enter terminal mode when window gains focus
-            pcall(vim.api.nvim_create_autocmd, "WinEnter", {
+            local ok_winenter, err_winenter = pcall(vim.api.nvim_create_autocmd, "WinEnter", {
               group = augroup,
               buffer = buf,
               callback = function()
@@ -230,9 +232,12 @@ local function navireader_picker(opts)
                 end
               end,
             })
+            if not ok_winenter then
+              vim.notify("NaviReader: Failed to create WinEnter autocmd: " .. tostring(err_winenter), vim.log.levels.ERROR)
+            end
 
             -- Also handle FocusGained for when returning from another desktop
-            pcall(vim.api.nvim_create_autocmd, "FocusGained", {
+            local ok_focus, err_focus = pcall(vim.api.nvim_create_autocmd, "FocusGained", {
               group = augroup,
               buffer = buf,
               callback = function()
@@ -241,10 +246,13 @@ local function navireader_picker(opts)
                 end
               end,
             })
+            if not ok_focus then
+              vim.notify("NaviReader: Failed to create FocusGained autocmd: " .. tostring(err_focus), vim.log.levels.ERROR)
+            end
           end
 
           -- Start terminal
-          local job_id = vim.fn.termopen(cmd, {
+          local ok_term, job_id = pcall(vim.fn.termopen, cmd, {
             on_exit = function(_, exit_code)
               vim.schedule(function()
                 -- Clean up autocommands
@@ -298,6 +306,14 @@ local function navireader_picker(opts)
               end)
             end
           })
+
+          if not ok_term then
+            vim.notify("NaviReader: Failed to start terminal: " .. tostring(job_id), vim.log.levels.ERROR)
+            if vim.api.nvim_win_is_valid(win) then
+              vim.api.nvim_win_close(win, true)
+            end
+            return
+          end
 
           -- Enter insert mode for terminal
           vim.cmd('startinsert')
