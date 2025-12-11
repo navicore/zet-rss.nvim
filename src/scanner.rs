@@ -5,21 +5,13 @@ use std::fs;
 use walkdir::WalkDir;
 
 /// Scans a directory recursively for markdown files containing RSS feed URLs
-/// Looks for URLs marked with 'rss:', 'feed:', in YAML frontmatter, or with RSS-like extensions
+/// Looks for URLs marked with '#feed' tag
 /// Returns a deduplicated list of feed URLs
 pub async fn scan_markdown_for_feeds(zet_path: &str) -> Result<Vec<String>> {
     let mut feeds = HashSet::new();
 
-    // Match URLs explicitly marked as RSS/feed
-    let explicit_feed_regex = Regex::new(r"(?i)(?:rss[:\s]+|feed[:\s]+|<!-- rss:\s*)(https?://[^\s\)>\]]+)")?;
-
-    // Match frontmatter feed lists
-    let frontmatter_regex = Regex::new(r"(?m)^rss_feeds?:\s*\n((?:\s*-\s*.+\n)+)")?;
-    let frontmatter_item_regex = Regex::new(r"^\s*-\s*(.+)$")?;
-
-    // Match URLs with definitive feed file extensions or paths
-    let feed_extension_regex = Regex::new(r"(https?://[^\s\)>\]]+(?:\.rss|\.xml|\.atom)(?:\?[^\s\)>\]]*)?)")?;
-    let feed_path_regex = Regex::new(r"(https?://[^\s\)>\]]+/(?:feed|rss|atom)(?:/|\?|$)[^\s\)>\]]*)")?;
+    // Match URLs explicitly marked with #feed tag
+    let feed_tag_regex = Regex::new(r"#feed\s+(https?://[^\s\)>\]]+)")?;
 
     for entry in WalkDir::new(zet_path)
         .follow_links(true)
@@ -29,52 +21,12 @@ pub async fn scan_markdown_for_feeds(zet_path: &str) -> Result<Vec<String>> {
     {
         let content = fs::read_to_string(entry.path())?;
 
-        // Look for explicitly marked RSS feeds
-        for cap in explicit_feed_regex.captures_iter(&content) {
+        for cap in feed_tag_regex.captures_iter(&content) {
             if let Some(url) = cap.get(1) {
                 let url_str = url.as_str().trim();
                 // Clean up the URL - remove trailing punctuation that might not be part of URL
                 let url_str = url_str.trim_end_matches(|c: char| c == '.' || c == ',' || c == ')' || c == ']' || c == '>');
                 feeds.insert(url_str.to_string());
-            }
-        }
-
-        // Look for feeds in frontmatter
-        if let Some(fm_cap) = frontmatter_regex.captures(&content) {
-            if let Some(items) = fm_cap.get(1) {
-                for item_cap in frontmatter_item_regex.captures_iter(items.as_str()) {
-                    if let Some(url) = item_cap.get(1) {
-                        let cleaned_url = url.as_str().trim().trim_matches('"').trim_matches('\'');
-                        if cleaned_url.starts_with("http") {
-                            feeds.insert(cleaned_url.to_string());
-                        }
-                    }
-                }
-            }
-        }
-
-        // Look for URLs with feed file extensions
-        for cap in feed_extension_regex.captures_iter(&content) {
-            if let Some(url) = cap.get(1) {
-                let url_str = url.as_str();
-                // Filter out common false positives
-                if !url_str.contains("/post/") && !url_str.contains("/blog/post/") {
-                    feeds.insert(url_str.to_string());
-                }
-            }
-        }
-
-        // Look for URLs with feed paths (but be strict)
-        for cap in feed_path_regex.captures_iter(&content) {
-            if let Some(url) = cap.get(1) {
-                let url_str = url.as_str();
-                // Only include if it ends with /feed, /rss, or /atom (with or without trailing slash)
-                if url_str.ends_with("/feed") || url_str.ends_with("/feed/") ||
-                   url_str.ends_with("/rss") || url_str.ends_with("/rss/") ||
-                   url_str.ends_with("/atom") || url_str.ends_with("/atom/") ||
-                   url_str.contains("/feed?") || url_str.contains("/rss?") || url_str.contains("/atom?") {
-                    feeds.insert(url_str.to_string());
-                }
             }
         }
     }
