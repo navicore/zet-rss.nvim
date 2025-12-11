@@ -215,4 +215,27 @@ function M.get_stats()
   }
 end
 
+-- Get all scanned feeds with their source locations
+function M.get_feeds()
+  local config = require("navireader").get_config()
+  local binary = config.navireader_bin or "navireader"
+
+  local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s list-feeds 2>/dev/null",
+    vim.fn.shellescape(config.navireader_path),
+    binary)
+
+  local result = vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 or result == "" then
+    return {}
+  end
+
+  local ok, feeds = pcall(vim.fn.json_decode, result)
+  if not ok then
+    return {}
+  end
+
+  return feeds or {}
+end
+
 return M

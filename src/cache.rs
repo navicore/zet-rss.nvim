@@ -372,25 +372,37 @@ starred: false
         Ok(count)
     }
 
-    pub fn store_feed_list(&self, feeds: Vec<String>) -> Result<()> {
-        let feeds_file = self.base_dir.join("state").join("feeds.txt");
-        fs::write(feeds_file, feeds.join("\n"))?;
+    pub fn store_feed_list(&self, feeds: Vec<crate::scanner::FeedSource>) -> Result<()> {
+        let feeds_file = self.base_dir.join("state").join("feeds.json");
+        let json = serde_json::to_string_pretty(&feeds)?;
+        fs::write(feeds_file, json)?;
         Ok(())
     }
 
-    pub fn get_feed_list(&self) -> Result<Vec<String>> {
-        let feeds_file = self.base_dir.join("state").join("feeds.txt");
+    pub fn get_feed_list(&self) -> Result<Vec<crate::scanner::FeedSource>> {
+        let feeds_file = self.base_dir.join("state").join("feeds.json");
 
         if !feeds_file.exists() {
+            // Try legacy feeds.txt for backwards compatibility
+            let legacy_file = self.base_dir.join("state").join("feeds.txt");
+            if legacy_file.exists() {
+                let content = fs::read_to_string(legacy_file)?;
+                return Ok(content
+                    .lines()
+                    .filter(|line| !line.is_empty())
+                    .map(|url| crate::scanner::FeedSource {
+                        url: url.to_string(),
+                        source_file: String::new(),
+                        line_number: 0,
+                    })
+                    .collect());
+            }
             return Ok(Vec::new());
         }
 
         let content = fs::read_to_string(feeds_file)?;
-        Ok(content
-            .lines()
-            .filter(|line| !line.is_empty())
-            .map(String::from)
-            .collect())
+        let feeds: Vec<crate::scanner::FeedSource> = serde_json::from_str(&content)?;
+        Ok(feeds)
     }
 }
 

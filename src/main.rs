@@ -37,6 +37,8 @@ enum Commands {
         id: String,
     },
     MarkAllRead,
+    /// List all scanned feeds as JSON
+    ListFeeds,
 }
 
 #[tokio::main]
@@ -64,8 +66,8 @@ async fn main() -> Result<()> {
             cache.store_feed_list(feeds.clone())?;
 
             println!("Found {} RSS feeds:", feeds.len());
-            for feed in feeds {
-                println!("  - {}", feed);
+            for feed in &feeds {
+                println!("  - {}", feed.url);
             }
         }
         Commands::Fetch { update } => {
@@ -92,9 +94,10 @@ async fn main() -> Result<()> {
 
             println!("Fetching {} feeds (up to {} concurrently)...", feeds.len(), MAX_CONCURRENT_FETCHES);
 
-            let fetch_tasks = feeds.into_iter().map(|feed_url| {
+            let fetch_tasks = feeds.into_iter().map(|feed| {
                 let sem = semaphore.clone();
                 let cache = cache.clone();
+                let feed_url = feed.url.clone();
                 async move {
                     let _permit = sem.acquire().await.unwrap();
                     println!("  Fetching: {}", feed_url);
@@ -146,6 +149,12 @@ async fn main() -> Result<()> {
             }
 
             println!("Marked {} articles as read", count);
+        }
+        Commands::ListFeeds => {
+            let cache = cache::TextCache::new()?;
+            let feeds = cache.get_feed_list()?;
+            let json = serde_json::to_string(&feeds)?;
+            println!("{}", json);
         }
     }
 

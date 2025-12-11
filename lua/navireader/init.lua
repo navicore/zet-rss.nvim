@@ -54,6 +54,8 @@ function M.setup(opts)
       require('telescope').extensions.navireader.search()
     elseif subcommand == "starred" then
       require('telescope').extensions.navireader.starred()
+    elseif subcommand == "feeds" then
+      require('telescope').extensions.navireader.feeds()
     elseif subcommand == "clear-cache" then
       M.clear_cache()
     elseif subcommand == "mark-all-read" then
@@ -64,6 +66,7 @@ function M.setup(opts)
         "  all              - Browse all articles (including read)\n" ..
         "  search           - Search articles\n" ..
         "  starred          - Browse starred articles\n" ..
+        "  feeds            - List scanned RSS feeds\n" ..
         "  scan             - Scan Zettelkasten for RSS feeds\n" ..
         "  fetch            - Fetch RSS articles\n" ..
         "  update           - Rescan and fetch new articles\n" ..
@@ -81,6 +84,7 @@ function M.setup(opts)
         "all",
         "search",
         "starred",
+        "feeds",
         "scan",
         "fetch",
         "update",

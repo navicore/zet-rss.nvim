@@ -416,6 +416,88 @@ function M.starred(opts)
   navireader_picker(vim.tbl_extend("force", opts, { articles = starred, picker_type = "starred" }))
 end
 
+function M.feeds(opts)
+  opts = opts or {}
+
+  local articles_module = require("navireader.articles")
+  local feeds = articles_module.get_feeds()
+
+  if #feeds == 0 then
+    vim.notify("No feeds found. Run :NaviReader scan first.", vim.log.levels.WARN)
+    return
+  end
+
+  pickers.new(opts, {
+    prompt_title = "NaviReader RSS Feeds",
+    finder = finders.new_table({
+      results = feeds,
+      entry_maker = function(feed)
+        -- Extract domain from URL for display
+        local domain = feed.url:match("https?://([^/]+)") or feed.url
+        -- Get just the filename from source_file
+        local source_name = feed.source_file:match("([^/]+)$") or feed.source_file
+
+        return {
+          value = feed,
+          display = string.format("%s  (%s)", domain, source_name),
+          ordinal = feed.url .. " " .. domain .. " " .. feed.source_file,
+        }
+      end,
+    }),
+    sorter = conf.generic_sorter(opts),
+    previewer = previewers.new_buffer_previewer({
+      title = "Feed Info",
+      define_preview = function(self, entry)
+        local feed = entry.value
+        local lines = {}
+
+        -- Extract domain
+        local domain = feed.url:match("https?://([^/]+)") or "Unknown"
+
+        table.insert(lines, "# " .. domain)
+        table.insert(lines, "")
+        table.insert(lines, "**URL:** " .. feed.url)
+        table.insert(lines, "")
+        table.insert(lines, "**Source File:** " .. feed.source_file)
+        table.insert(lines, "")
+        table.insert(lines, "**Line:** " .. tostring(feed.line_number))
+        table.insert(lines, "")
+        table.insert(lines, "---")
+        table.insert(lines, "")
+        table.insert(lines, "Press <Enter> to open the source file")
+
+        vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+        vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
+      end,
+    }),
+    attach_mappings = function(prompt_bufnr, map)
+      -- Open source file on Enter
+      actions.select_default:replace(function()
+        local selection = action_state.get_selected_entry()
+        if not selection then
+          return
+        end
+
+        local feed = selection.value
+        actions.close(prompt_bufnr)
+
+        -- Open the source file at the line number
+        if feed.source_file and feed.source_file ~= "" then
+          vim.cmd("edit " .. vim.fn.fnameescape(feed.source_file))
+          if feed.line_number and feed.line_number > 0 then
+            vim.api.nvim_win_set_cursor(0, { feed.line_number, 0 })
+            vim.cmd("normal! zz")  -- Center the line
+          end
+        else
+          vim.notify("No source file information available for this feed", vim.log.levels.WARN)
+        end
+      end)
+
+      return true
+    end,
+  }):find()
+end
+
 return require("telescope").register_extension({
   setup = function(ext_config, config)
     -- Extension setup if needed
@@ -425,5 +507,6 @@ return require("telescope").register_extension({
     all = M.all,
     search = M.search,
     starred = M.starred,
+    feeds = M.feeds,
   },
 })
