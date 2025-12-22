@@ -45,6 +45,12 @@ local function navireader_picker(opts)
 
   if opts.query and opts.query ~= "" then
     articles = articles_module.search_articles(opts.query)
+  elseif opts.feed_url then
+    -- Filter by specific feed
+    local article_opts = {
+      show_read = opts.show_read or false
+    }
+    articles = articles_module.get_articles_by_feed(opts.feed_url, article_opts)
   else
     -- Pass options for filtering
     local article_opts = {
@@ -54,12 +60,15 @@ local function navireader_picker(opts)
   end
 
   if #articles == 0 then
-    vim.notify("No articles found. Run :NaviReaderFetch to fetch RSS feeds.", vim.log.levels.WARN)
+    local msg = opts.feed_url and "No unread articles for this feed." or "No articles found. Run :NaviReaderFetch to fetch RSS feeds."
+    vim.notify(msg, vim.log.levels.WARN)
     return
   end
 
+  local prompt_title = opts.prompt_title or "NaviReader RSS Articles"
+
   pickers.new(opts, {
-    prompt_title = "NaviReader RSS Articles",
+    prompt_title = prompt_title,
     finder = finders.new_table({
       results = articles,
       entry_maker = function(article)
@@ -498,6 +507,86 @@ function M.feeds(opts)
   }):find()
 end
 
+function M.browse_feeds(opts)
+  opts = opts or {}
+
+  local articles_module = require("navireader.articles")
+  local feeds = articles_module.get_feeds_with_stats()
+
+  if #feeds == 0 then
+    vim.notify("No feeds found. Run :NaviReader scan first.", vim.log.levels.WARN)
+    return
+  end
+
+  -- Sort feeds by unread count (most unread first)
+  table.sort(feeds, function(a, b)
+    return a.unread > b.unread
+  end)
+
+  pickers.new(opts, {
+    prompt_title = "Browse Feeds",
+    finder = finders.new_table({
+      results = feeds,
+      entry_maker = function(feed)
+        local domain = feed.url:match("https?://([^/]+)") or feed.url
+        local unread_indicator = feed.unread > 0 and string.format("(%d unread)", feed.unread) or "(all read)"
+
+        return {
+          value = feed,
+          display = string.format("%s  %s  [%d total]", domain, unread_indicator, feed.total),
+          ordinal = feed.url .. " " .. domain,
+        }
+      end,
+    }),
+    sorter = conf.generic_sorter(opts),
+    previewer = previewers.new_buffer_previewer({
+      title = "Feed Info",
+      define_preview = function(self, entry)
+        local feed = entry.value
+        local lines = {}
+
+        local domain = feed.url:match("https?://([^/]+)") or "Unknown"
+
+        table.insert(lines, "# " .. domain)
+        table.insert(lines, "")
+        table.insert(lines, "**URL:** " .. feed.url)
+        table.insert(lines, "")
+        table.insert(lines, string.format("**Articles:** %d total, %d unread", feed.total, feed.unread))
+        table.insert(lines, "")
+        table.insert(lines, "---")
+        table.insert(lines, "")
+        table.insert(lines, "Press <Enter> to browse articles from this feed")
+
+        vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+        vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
+      end,
+    }),
+    attach_mappings = function(prompt_bufnr, map)
+      actions.select_default:replace(function()
+        local selection = action_state.get_selected_entry()
+        if not selection then
+          return
+        end
+
+        local feed = selection.value
+        local domain = feed.url:match("https?://([^/]+)") or feed.url
+        actions.close(prompt_bufnr)
+
+        -- Open article picker filtered to this feed
+        vim.defer_fn(function()
+          navireader_picker({
+            feed_url = feed.url,
+            prompt_title = "Articles: " .. domain,
+            picker_type = "feed_browse",
+          })
+        end, 10)
+      end)
+
+      return true
+    end,
+  }):find()
+end
+
 return require("telescope").register_extension({
   setup = function(ext_config, config)
     -- Extension setup if needed
@@ -508,5 +597,6 @@ return require("telescope").register_extension({
     search = M.search,
     starred = M.starred,
     feeds = M.feeds,
+    browse_feeds = M.browse_feeds,
   },
 })

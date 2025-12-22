@@ -238,4 +238,51 @@ function M.get_feeds()
   return feeds or {}
 end
 
+-- Get articles filtered by feed URL
+function M.get_articles_by_feed(feed_url, options)
+  options = options or {}
+  local all_articles = M.get_articles(nil, { show_read = true })
+  local filtered = {}
+
+  for _, article in ipairs(all_articles) do
+    if article.feed == feed_url then
+      if options.show_read or not article.read then
+        table.insert(filtered, article)
+      end
+    end
+  end
+
+  return filtered
+end
+
+-- Get feeds with article counts
+function M.get_feeds_with_stats()
+  local feeds = M.get_feeds()
+  local all_articles = M.get_articles(nil, { show_read = true })
+
+  -- Build a map of feed URL -> {total, unread}
+  local stats = {}
+  for _, article in ipairs(all_articles) do
+    local feed_url = article.feed
+    if feed_url then
+      if not stats[feed_url] then
+        stats[feed_url] = { total = 0, unread = 0 }
+      end
+      stats[feed_url].total = stats[feed_url].total + 1
+      if not article.read then
+        stats[feed_url].unread = stats[feed_url].unread + 1
+      end
+    end
+  end
+
+  -- Attach stats to feeds
+  for _, feed in ipairs(feeds) do
+    local feed_stats = stats[feed.url] or { total = 0, unread = 0 }
+    feed.total = feed_stats.total
+    feed.unread = feed_stats.unread
+  end
+
+  return feeds
+end
+
 return M
