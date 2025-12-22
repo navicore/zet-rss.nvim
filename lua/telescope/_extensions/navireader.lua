@@ -294,8 +294,8 @@ local function navireader_picker(opts)
                   end, 50)
                 elseif exit_code == 1 then
                   -- Open browser
-                  -- Use session-specific temp file
-                  local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
+                  -- Use system temp dir (must match Rust's std::env::temp_dir())
+                  local temp_dir = os.getenv("TMPDIR") or "/tmp/"
                   local temp_file_path = temp_dir .. "navireader_open_url_" .. session_id .. ".txt"
                   local url_file = io.open(temp_file_path, "r")
                   if url_file then
@@ -307,8 +307,8 @@ local function navireader_picker(opts)
                   end
                 elseif exit_code == 2 then
                   -- Open note
-                  -- Use session-specific temp file
-                  local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
+                  -- Use system temp dir (must match Rust's std::env::temp_dir())
+                  local temp_dir = os.getenv("TMPDIR") or "/tmp/"
                   local temp_file_path = temp_dir .. "navireader_note_path_" .. session_id .. ".txt"
                   local note_file = io.open(temp_file_path, "r")
                   if note_file then
@@ -320,7 +320,8 @@ local function navireader_picker(opts)
                   end
                 elseif exit_code == 3 then
                   -- Open in vim buffer (read-only)
-                  local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
+                  -- Use system temp dir (must match Rust's std::env::temp_dir())
+                  local temp_dir = os.getenv("TMPDIR") or "/tmp/"
                   local temp_file_path = temp_dir .. "navireader_vim_path_" .. session_id .. ".txt"
                   local vim_file = io.open(temp_file_path, "r")
                   if vim_file then
