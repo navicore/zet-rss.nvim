@@ -281,6 +281,13 @@ local function navireader_picker(opts)
                       require('telescope').extensions.navireader.starred()
                     elseif picker_type == "search" then
                       require('telescope').extensions.navireader.search()
+                    elseif picker_type == "feed_browse" and opts.feed_url then
+                      -- Return to filtered feed view
+                      navireader_picker({
+                        feed_url = opts.feed_url,
+                        prompt_title = opts.prompt_title,
+                        picker_type = "feed_browse",
+                      })
                     else
                       require('telescope').extensions.navireader.navireader()
                     end
