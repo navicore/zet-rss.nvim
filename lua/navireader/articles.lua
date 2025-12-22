@@ -76,9 +76,9 @@ function M.get_articles(limit, options)
     end
   end
 
-  -- Sort by date (newest first)
+  -- Sort by date (oldest first in array, so Telescope's descending display shows newest at top)
   table.sort(articles, function(a, b)
-    -- Handle missing dates
+    -- Handle missing dates (put items without dates at the end)
     if not a.published and not b.published then
       return false
     elseif not a.published then
@@ -87,8 +87,8 @@ function M.get_articles(limit, options)
       return true
     end
 
-    -- Compare dates (newer first)
-    return a.published > b.published
+    -- Compare dates (older first, so display shows newest at top with cursor at bottom)
+    return a.published < b.published
   end)
 
   -- Apply limit after filtering and sorting
