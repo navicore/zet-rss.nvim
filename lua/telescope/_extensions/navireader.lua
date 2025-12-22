@@ -318,6 +318,22 @@ local function navireader_picker(opts)
                     os.remove(temp_file_path)
                     vim.cmd("edit " .. vim.fn.fnameescape(note_path))
                   end
+                elseif exit_code == 3 then
+                  -- Open in vim buffer (read-only)
+                  local temp_dir = vim.fn.tempname():match("^(.*/)") or "/tmp/"
+                  local temp_file_path = temp_dir .. "navireader_vim_path_" .. session_id .. ".txt"
+                  local vim_file = io.open(temp_file_path, "r")
+                  if vim_file then
+                    local article_path = vim_file:read("*a")
+                    vim_file:close()
+                    os.remove(temp_file_path)
+                    vim.cmd("edit " .. vim.fn.fnameescape(article_path))
+                    -- Make buffer read-only
+                    vim.bo.readonly = true
+                    vim.bo.modifiable = false
+                    -- Set filetype for syntax highlighting
+                    vim.bo.filetype = "markdown"
+                  end
                 end
               end)
             end

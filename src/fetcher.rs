@@ -60,6 +60,7 @@ pub async fn fetch_feed(url: &str) -> Result<Feed> {
             content,
             read: false,
             starred: false,
+            filepath: None,
         });
     }
 

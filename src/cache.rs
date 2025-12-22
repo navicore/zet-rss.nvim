@@ -248,6 +248,7 @@ starred: false
             content: Some(body.to_string()),
             read,
             starred,
+            filepath: Some(path.to_string_lossy().to_string()),
         })
     }
 

@@ -13,6 +13,8 @@ pub struct FeedItem {
     pub content: Option<String>,
     pub read: bool,
     pub starred: bool,
+    #[serde(skip)]
+    pub filepath: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

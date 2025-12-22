@@ -137,6 +137,27 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
             }
             2
         }
+        ViewerMode::OpenInVim => {
+            // Write article filepath to temp file for Lua to open in vim buffer
+            if let Some(ref filepath) = article.filepath {
+                let temp_dir = std::env::temp_dir();
+                let temp_file = temp_dir.join(format!("navireader_vim_path_{}.txt", session_id));
+
+                let mut file = OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .mode(0o600)
+                    .open(&temp_file)
+                    .context("Failed to create temp file for vim path")?;
+
+                file.write_all(filepath.as_bytes())
+                    .context("Failed to write vim path to temp file")?;
+                file.sync_all()
+                    .context("Failed to sync vim path file to disk")?;
+            }
+            3
+        }
     };
 
     Ok(exit_code)
@@ -147,6 +168,7 @@ enum ViewerMode {
     Reading,
     OpenBrowser,
     CreateNote,
+    OpenInVim,
 }
 
 struct ViewerApp {
@@ -176,6 +198,10 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut View
                     }
                     KeyCode::Char('n') => {
                         app.mode = ViewerMode::CreateNote;
+                        return Ok(());
+                    }
+                    KeyCode::Char('v') => {
+                        app.mode = ViewerMode::OpenInVim;
                         return Ok(());
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
@@ -300,10 +326,12 @@ fn render_footer(f: &mut Frame, area: Rect) {
     let footer_text = Line::from(vec![
         Span::styled(" q ", Style::default().bg(Color::DarkGray).fg(Color::White)),
         Span::raw(" Quit  "),
+        Span::styled(" v ", Style::default().bg(Color::DarkGray).fg(Color::White)),
+        Span::raw(" Vim  "),
         Span::styled(" o ", Style::default().bg(Color::DarkGray).fg(Color::White)),
-        Span::raw(" Open in Browser  "),
+        Span::raw(" Browser  "),
         Span::styled(" n ", Style::default().bg(Color::DarkGray).fg(Color::White)),
-        Span::raw(" Create Note  "),
+        Span::raw(" Note  "),
         Span::styled(" j/k ", Style::default().bg(Color::DarkGray).fg(Color::White)),
         Span::raw(" Scroll  "),
     ]);
