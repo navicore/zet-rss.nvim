@@ -306,21 +306,88 @@ local function navireader_picker(opts)
                     vim.fn.system("open " .. vim.fn.shellescape(url))
                   end
                 elseif exit_code == 2 then
-                  -- Open note
-                  -- Use system temp dir (must match Rust's std::env::temp_dir())
+                  -- Open note in floating window
                   local temp_dir = os.getenv("TMPDIR") or "/tmp/"
                   local temp_file_path = temp_dir .. "navireader_note_path_" .. session_id .. ".txt"
                   local note_file = io.open(temp_file_path, "r")
                   if note_file then
                     local note_path = note_file:read("*a")
                     note_file:close()
-                    -- Clean up temp file after reading
                     os.remove(temp_file_path)
+
+                    -- Create floating window for note
+                    local float_buf = vim.api.nvim_create_buf(false, false)
+                    local float_width = math.min(120, math.floor(vim.o.columns * 0.9))
+                    local float_height = math.min(40, math.floor(vim.o.lines * 0.9))
+                    local float_col = math.floor((vim.o.columns - float_width) / 2)
+                    local float_row = math.floor((vim.o.lines - float_height) / 2)
+
+                    local float_win = vim.api.nvim_open_win(float_buf, true, {
+                      relative = "editor",
+                      width = float_width,
+                      height = float_height,
+                      col = float_col,
+                      row = float_row,
+                      style = "minimal",
+                      border = "rounded",
+                      title = " Note (q to close) ",
+                      title_pos = "center",
+                    })
+
+                    -- Load the note file
                     vim.cmd("edit " .. vim.fn.fnameescape(note_path))
+                    vim.bo.filetype = "markdown"
+
+                    -- Helper to return to reader
+                    local function return_to_reader()
+                      if vim.api.nvim_win_is_valid(float_win) then
+                        vim.api.nvim_win_close(float_win, true)
+                      end
+                      vim.defer_fn(function()
+                        if picker_type == "feed_browse" and opts.feed_url then
+                          navireader_picker({
+                            feed_url = opts.feed_url,
+                            prompt_title = opts.prompt_title,
+                            picker_type = "feed_browse",
+                          })
+                        elseif picker_type == "all" then
+                          require('telescope').extensions.navireader.all()
+                        elseif picker_type == "starred" then
+                          require('telescope').extensions.navireader.starred()
+                        else
+                          require('telescope').extensions.navireader.navireader()
+                        end
+                      end, 50)
+                    end
+
+                    -- Map 'q' to close and return to reader
+                    vim.keymap.set('n', 'q', return_to_reader, { buffer = true, nowait = true })
+
+                    -- Return to reader when window closes
+                    vim.api.nvim_create_autocmd("WinClosed", {
+                      pattern = tostring(float_win),
+                      once = true,
+                      callback = function()
+                        vim.defer_fn(function()
+                          if picker_type == "feed_browse" and opts.feed_url then
+                            navireader_picker({
+                              feed_url = opts.feed_url,
+                              prompt_title = opts.prompt_title,
+                              picker_type = "feed_browse",
+                            })
+                          elseif picker_type == "all" then
+                            require('telescope').extensions.navireader.all()
+                          elseif picker_type == "starred" then
+                            require('telescope').extensions.navireader.starred()
+                          else
+                            require('telescope').extensions.navireader.navireader()
+                          end
+                        end, 50)
+                      end,
+                    })
                   end
                 elseif exit_code == 3 then
-                  -- Open in vim buffer (read-only)
-                  -- Use system temp dir (must match Rust's std::env::temp_dir())
+                  -- Open in vim buffer (read-only) in floating window
                   local temp_dir = os.getenv("TMPDIR") or "/tmp/"
                   local temp_file_path = temp_dir .. "navireader_vim_path_" .. session_id .. ".txt"
                   local vim_file = io.open(temp_file_path, "r")
@@ -328,12 +395,79 @@ local function navireader_picker(opts)
                     local article_path = vim_file:read("*a")
                     vim_file:close()
                     os.remove(temp_file_path)
+
+                    -- Create floating window for article
+                    local float_buf = vim.api.nvim_create_buf(false, false)
+                    local float_width = math.min(120, math.floor(vim.o.columns * 0.9))
+                    local float_height = math.min(40, math.floor(vim.o.lines * 0.9))
+                    local float_col = math.floor((vim.o.columns - float_width) / 2)
+                    local float_row = math.floor((vim.o.lines - float_height) / 2)
+
+                    local float_win = vim.api.nvim_open_win(float_buf, true, {
+                      relative = "editor",
+                      width = float_width,
+                      height = float_height,
+                      col = float_col,
+                      row = float_row,
+                      style = "minimal",
+                      border = "rounded",
+                      title = " Article (q to close) ",
+                      title_pos = "center",
+                    })
+
+                    -- Load the article file
                     vim.cmd("edit " .. vim.fn.fnameescape(article_path))
-                    -- Make buffer read-only
                     vim.bo.readonly = true
                     vim.bo.modifiable = false
-                    -- Set filetype for syntax highlighting
                     vim.bo.filetype = "markdown"
+
+                    -- Helper to return to reader
+                    local function return_to_reader()
+                      if vim.api.nvim_win_is_valid(float_win) then
+                        vim.api.nvim_win_close(float_win, true)
+                      end
+                      vim.defer_fn(function()
+                        if picker_type == "feed_browse" and opts.feed_url then
+                          navireader_picker({
+                            feed_url = opts.feed_url,
+                            prompt_title = opts.prompt_title,
+                            picker_type = "feed_browse",
+                          })
+                        elseif picker_type == "all" then
+                          require('telescope').extensions.navireader.all()
+                        elseif picker_type == "starred" then
+                          require('telescope').extensions.navireader.starred()
+                        else
+                          require('telescope').extensions.navireader.navireader()
+                        end
+                      end, 50)
+                    end
+
+                    -- Map 'q' to close and return to reader
+                    vim.keymap.set('n', 'q', return_to_reader, { buffer = true, nowait = true })
+
+                    -- Return to reader when window closes
+                    vim.api.nvim_create_autocmd("WinClosed", {
+                      pattern = tostring(float_win),
+                      once = true,
+                      callback = function()
+                        vim.defer_fn(function()
+                          if picker_type == "feed_browse" and opts.feed_url then
+                            navireader_picker({
+                              feed_url = opts.feed_url,
+                              prompt_title = opts.prompt_title,
+                              picker_type = "feed_browse",
+                            })
+                          elseif picker_type == "all" then
+                            require('telescope').extensions.navireader.all()
+                          elseif picker_type == "starred" then
+                            require('telescope').extensions.navireader.starred()
+                          else
+                            require('telescope').extensions.navireader.navireader()
+                          end
+                        end, 50)
+                      end,
+                    })
                   end
                 end
               end)
