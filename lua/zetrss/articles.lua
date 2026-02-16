@@ -50,9 +50,9 @@ function M.get_articles(limit, options)
   options = options or {}
   local show_read = options.show_read  -- Default to false (don't show read items)
 
-  local navireader = require("navireader")
-  local config = navireader.get_config()
-  local articles_dir = config.navireader_path .. "/articles"
+  local zetrss = require("zetrss")
+  local config = zetrss.get_config()
+  local articles_dir = config.zetrss_path .. "/articles"
 
   local articles = {}
 
@@ -105,11 +105,11 @@ end
 
 -- Mark article as read
 function M.mark_as_read(article_id)
-  local config = require("navireader").get_config()
-  local binary = config.navireader_bin or "navireader"
+  local config = require("zetrss").get_config()
+  local binary = config.zetrss_bin or "zetrss"
 
-  local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s mark-read %s 2>&1",
-    vim.fn.shellescape(config.navireader_path),
+  local cmd = string.format("env ZETRSS_DATA_DIR=%s %s mark-read %s 2>&1",
+    vim.fn.shellescape(config.zetrss_path),
     binary,
     vim.fn.shellescape(article_id))
 
@@ -217,11 +217,11 @@ end
 
 -- Get all scanned feeds with their source locations
 function M.get_feeds()
-  local config = require("navireader").get_config()
-  local binary = config.navireader_bin or "navireader"
+  local config = require("zetrss").get_config()
+  local binary = config.zetrss_bin or "zetrss"
 
-  local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s list-feeds 2>/dev/null",
-    vim.fn.shellescape(config.navireader_path),
+  local cmd = string.format("env ZETRSS_DATA_DIR=%s %s list-feeds 2>/dev/null",
+    vim.fn.shellescape(config.zetrss_path),
     binary)
 
   local result = vim.fn.system(cmd)

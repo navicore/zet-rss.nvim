@@ -5,7 +5,7 @@ use tempfile::TempDir;
 
 fn create_test_cache() -> (TextCache, TempDir) {
     let temp_dir = TempDir::new().unwrap();
-    std::env::set_var("NAVIREADER_DATA_DIR", temp_dir.path().to_str().unwrap());
+    std::env::set_var("ZETRSS_DATA_DIR", temp_dir.path().to_str().unwrap());
     let cache = TextCache::new().unwrap();
     (cache, temp_dir)
 }
@@ -28,6 +28,7 @@ fn create_test_feed() -> Feed {
                 content: Some("Article 1 content".to_string()),
                 read: false,
                 starred: false,
+                filepath: None,
             },
             FeedItem {
                 id: "test-article-2".to_string(),
@@ -40,6 +41,7 @@ fn create_test_feed() -> Feed {
                 content: Some("Article 2 content".to_string()),
                 read: false,
                 starred: false,
+                filepath: None,
             },
         ],
     }
@@ -126,6 +128,7 @@ fn test_get_articles_limit() {
             content: Some(format!("Article {} content", i)),
             read: false,
             starred: false,
+            filepath: None,
         });
     }
 

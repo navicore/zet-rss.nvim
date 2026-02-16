@@ -22,7 +22,7 @@ vim.api.nvim_create_user_command('TestSimple', function()
   vim.cmd('startinsert')
 end, {})
 
-vim.api.nvim_create_user_command('TestNaviReader', function()
+vim.api.nvim_create_user_command('TestZetRss', function()
   local buf = vim.api.nvim_create_buf(false, true)
 
   local win = vim.api.nvim_open_win(buf, true, {
@@ -35,8 +35,8 @@ vim.api.nvim_create_user_command('TestNaviReader', function()
     border = 'single',
   })
 
-  -- Test with navireader directly
-  vim.fn.termopen('./bin/navireader view --id 20250608-143800-68a4aeb157a8610001cb3f36', {
+  -- Test with zetrss directly
+  vim.fn.termopen('./bin/zetrss view --id 20250608-143800-68a4aeb157a8610001cb3f36', {
     on_exit = function()
       pcall(vim.api.nvim_win_close, win, true)
     end
@@ -45,4 +45,4 @@ vim.api.nvim_create_user_command('TestNaviReader', function()
   vim.cmd('startinsert')
 end, {})
 
-print("Commands created: :TestSimple and :TestNaviReader")
+print("Commands created: :TestSimple and :TestZetRss")

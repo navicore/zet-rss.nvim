@@ -22,7 +22,7 @@ use crate::cache::TextCache;
 /// Returns an exit code: 0=normal, 1=open browser, 2=create note
 pub fn run_viewer(article_id: &str) -> Result<i32> {
     // Get session ID from environment or generate new one
-    let session_id = std::env::var("NAVIREADER_SESSION_ID")
+    let session_id = std::env::var("ZETRSS_SESSION_ID")
         .unwrap_or_else(|_| Uuid::new_v4().to_string());
 
     // Setup terminal
@@ -37,7 +37,7 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
         .context("Failed to initialize article cache")?;
     let article = cache.get_article_by_id(article_id)
         .with_context(|| format!("Failed to load article {}", article_id))?
-        .ok_or_else(|| anyhow::anyhow!("Article not found: {}. Try running 'NaviReader fetch' to update articles.", article_id))?;
+        .ok_or_else(|| anyhow::anyhow!("Article not found: {}. Try running 'zetrss fetch' to update articles.", article_id))?;
 
     // Mark as read
     cache.mark_as_read(&article.id)
@@ -97,7 +97,7 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
             // Write URL to a temp file for Lua to read
             // Use session-specific temp file to avoid race conditions
             let temp_dir = std::env::temp_dir();
-            let temp_file = temp_dir.join(format!("navireader_open_url_{}.txt", session_id));
+            let temp_file = temp_dir.join(format!("zetrss_open_url_{}.txt", session_id));
 
             // Write with restrictive permissions
             let mut file = OpenOptions::new()
@@ -119,7 +119,7 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
             if let Ok(note_path) = create_note_from_article(&article) {
                 // Use session-specific temp file to avoid race conditions
                 let temp_dir = std::env::temp_dir();
-                let temp_file = temp_dir.join(format!("navireader_note_path_{}.txt", session_id));
+                let temp_file = temp_dir.join(format!("zetrss_note_path_{}.txt", session_id));
 
                 // Write with restrictive permissions
                 let mut file = OpenOptions::new()
@@ -141,7 +141,7 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
             // Write article filepath to temp file for Lua to open in vim buffer
             if let Some(ref filepath) = article.filepath {
                 let temp_dir = std::env::temp_dir();
-                let temp_file = temp_dir.join(format!("navireader_vim_path_{}.txt", session_id));
+                let temp_file = temp_dir.join(format!("zetrss_vim_path_{}.txt", session_id));
 
                 let mut file = OpenOptions::new()
                     .create(true)

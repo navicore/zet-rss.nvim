@@ -1,4 +1,4 @@
--- Test navireader viewer in floating window
+-- Test zetrss viewer in floating window
 local function test_viewer()
   local buf = vim.api.nvim_create_buf(false, true)
 
@@ -22,13 +22,13 @@ local function test_viewer()
   local win = vim.api.nvim_open_win(buf, true, opts)
 
   -- Get first article ID
-  local articles = require("navireader.articles").get_articles(1)
+  local articles = require("zetrss.articles").get_articles(1)
   if #articles == 0 then
     vim.notify("No articles found", vim.log.levels.ERROR)
     return
   end
 
-  local cmd = "./bin/navireader view --id " .. vim.fn.shellescape(articles[1].id)
+  local cmd = "./bin/zetrss view --id " .. vim.fn.shellescape(articles[1].id)
 
   print("Running command: " .. cmd)
 

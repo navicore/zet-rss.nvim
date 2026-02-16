@@ -1,23 +1,17 @@
 #!/bin/bash
 
-echo "Clearing NaviReader cache..."
+echo "Clearing ZetRss cache..."
 
 # Clear Neovim data directory
-if [ -d "$HOME/.local/share/nvim/navireader" ]; then
-    echo "Removing: $HOME/.local/share/nvim/navireader"
-    rm -rf "$HOME/.local/share/nvim/navireader"
+if [ -d "$HOME/.local/share/nvim/zetrss" ]; then
+    echo "Removing: $HOME/.local/share/nvim/zetrss"
+    rm -rf "$HOME/.local/share/nvim/zetrss"
 fi
 
 # Clear fallback directory
-if [ -d "$HOME/.local/share/navireader" ]; then
-    echo "Removing: $HOME/.local/share/navireader"
-    rm -rf "$HOME/.local/share/navireader"
+if [ -d "$HOME/.local/share/zetrss" ]; then
+    echo "Removing: $HOME/.local/share/zetrss"
+    rm -rf "$HOME/.local/share/zetrss"
 fi
 
-# Clear old location if it exists
-if [ -d "$HOME/.navireader" ]; then
-    echo "Removing old cache: $HOME/.navireader"
-    rm -rf "$HOME/.navireader"
-fi
-
-echo "Cache cleared! Run :NaviReaderFetch to get fresh articles."
+echo "Cache cleared! Run :ZetRss fetch to get fresh articles."

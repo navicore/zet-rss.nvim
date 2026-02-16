@@ -1,19 +1,19 @@
-# NaviReader
+# zet-rss.nvim
 
 A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelkasten workflow. No servers, no databases - just text files and a fast Rust backend with a beautiful TUI viewer.
 
 ## Features
 
-- 🔒 **Privacy First**: All data stored locally as plain text files
-- 📝 **Zettelkasten Integration**: Scans your markdown notes for RSS feeds
-- 📖 **TUI Viewer**: Beautiful terminal UI for reading articles with vim-style navigation
-- 🔍 **Smart Filtering**: Shows unread articles by default, sorted by date
-- 🎯 **Telescope UI**: Browse, search, and manage feeds within Neovim
-- 💾 **Pure Text Storage**: Articles saved as markdown with YAML frontmatter
-- ⚡ **Fast Search**: Full-text search across all cached articles
-- 📱 **Offline Reading**: Read cached articles anytime
-- ⭐ **Article Starring**: Mark articles for later reference
-- 🗂️ **Unified Commands**: Single NaviReader command with intuitive subcommands
+- **Privacy First**: All data stored locally as plain text files
+- **Zettelkasten Integration**: Scans your markdown notes for RSS feeds
+- **TUI Viewer**: Beautiful terminal UI for reading articles with vim-style navigation
+- **Smart Filtering**: Shows unread articles by default, sorted by date
+- **Telescope UI**: Browse, search, and manage feeds within Neovim
+- **Pure Text Storage**: Articles saved as markdown with YAML frontmatter
+- **Fast Search**: Full-text search across all cached articles
+- **Offline Reading**: Read cached articles anytime
+- **Article Starring**: Mark articles for later reference
+- **Unified Commands**: Single ZetRss command with intuitive subcommands
 
 ## Installation
 
@@ -21,17 +21,17 @@ A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelk
 
 ```lua
 {
-  "navicore/navireader",
+  "navicore/zet-rss.nvim",
   dependencies = { "nvim-telescope/telescope.nvim" },
-  build = "cargo build --release && mkdir -p bin && cp target/release/navireader bin/",
+  build = "cargo build --release && mkdir -p lua/zetrss/bin && cp target/release/zetrss lua/zetrss/bin/",
   lazy = false,  -- IMPORTANT: Required for commands to register properly
   config = function()
-    require("navireader").setup({
+    require("zetrss").setup({
       -- Optional: override zet path (auto-detects ~/git/USERNAME/zet by default)
       -- zet_path = vim.fn.expand("~/my-custom-path/zet"),
     })
     -- Load Telescope extension
-    require("telescope").load_extension("navireader")
+    require("telescope").load_extension("zetrss")
   end,
 }
 ```
@@ -40,11 +40,11 @@ A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelk
 
 ```lua
 use {
-  'navicore/navireader',
+  'navicore/zet-rss.nvim',
   requires = { 'nvim-telescope/telescope.nvim' },
   run = 'make install',
   config = function()
-    require('navireader').setup()
+    require('zetrss').setup()
   end
 }
 ```
@@ -53,41 +53,41 @@ use {
 
 ```vim
 Plug 'nvim-telescope/telescope.nvim'
-Plug 'navicore/navireader', { 'do': 'make install' }
+Plug 'navicore/zet-rss.nvim', { 'do': 'make install' }
 ```
 
 The plugin automatically compiles the Rust backend on first install. If you need to rebuild:
 
 ```bash
-cd ~/.local/share/nvim/lazy/navireader  # or wherever your plugins are
-cargo build --release && cp target/release/navireader bin/
+cd ~/.local/share/nvim/lazy/zet-rss.nvim  # or wherever your plugins are
+cargo build --release && cp target/release/zetrss lua/zetrss/bin/
 ```
 
 ## Usage
 
 ### Unified Command Structure
 
-NaviReader uses a single command with subcommands:
+ZetRss uses a single command with subcommands:
 
 ```vim
-:NaviReader              " Browse unread articles (default)
-:NaviReader all          " Browse all articles including read ones
-:NaviReader search       " Search articles
-:NaviReader starred      " Browse starred articles
-:NaviReader scan          " Scan your Zettelkasten for RSS feed URLs
-:NaviReader fetch         " Fetch new articles from all feeds
-:NaviReader update        " Rescan notes and fetch new articles
-:NaviReader mark-all-read " Mark all unread articles as read
-:NaviReader clear-cache   " Clear all cached data (with confirmation)
+:ZetRss              " Browse unread articles (default)
+:ZetRss all          " Browse all articles including read ones
+:ZetRss search       " Search articles
+:ZetRss starred      " Browse starred articles
+:ZetRss scan          " Scan your Zettelkasten for RSS feed URLs
+:ZetRss fetch         " Fetch new articles from all feeds
+:ZetRss update        " Rescan notes and fetch new articles
+:ZetRss mark-all-read " Mark all unread articles as read
+:ZetRss clear-cache   " Clear all cached data (with confirmation)
 ```
 
 ### Telescope Commands (Alternative)
 
 ```vim
-:Telescope navireader           " Browse unread articles
-:Telescope navireader all       " Browse all articles
-:Telescope navireader search    " Search articles
-:Telescope navireader starred   " Show starred articles
+:Telescope zetrss           " Browse unread articles
+:Telescope zetrss all       " Browse all articles
+:Telescope zetrss search    " Search articles
+:Telescope zetrss starred   " Show starred articles
 ```
 
 ### Keyboard Shortcuts
@@ -110,26 +110,26 @@ NaviReader uses a single command with subcommands:
 
 ```bash
 # Scan your zet directory for RSS feeds (auto-detects ~/git/USERNAME/zet)
-navireader scan
+zetrss scan
 
 # Scan a custom path
-navireader scan --path ~/my-notes
+zetrss scan --path ~/my-notes
 
 # Fetch articles from all feeds
-navireader fetch
+zetrss fetch
 
 # Update: rescan zet and fetch
-navireader fetch --update
+zetrss fetch --update
 ```
 
 ## How It Works
 
-1. **Feed Discovery**: NaviReader scans your markdown files for:
+1. **Feed Discovery**: ZetRss scans your markdown files for:
    - URLs marked with `rss:` or `feed:` prefixes
    - YAML frontmatter with `rss_feeds:` lists
    - URLs ending in `.rss`, `.xml`, `/feed`, `/rss`, etc.
 
-2. **Text Storage**: Articles are stored in `~/.local/share/nvim/navireader/articles/` as markdown:
+2. **Text Storage**: Articles are stored in `~/.local/share/nvim/zetrss/articles/` as markdown:
    ```markdown
    ---
    id: unique-article-id
@@ -165,21 +165,21 @@ navireader fetch --update
 
 2. In Neovim:
    ```vim
-   :NaviReader scan     " Find feeds in your notes
-   :NaviReader fetch    " Download articles
-   :NaviReader          " Start reading!
+   :ZetRss scan     " Find feeds in your notes
+   :ZetRss fetch    " Download articles
+   :ZetRss          " Start reading!
    ```
 
 3. Create notes from interesting articles with `n` in viewer or `<C-n>` in Telescope
 
 ## Data Storage
 
-NaviReader stores data in Neovim's standard data directory:
-- **Linux/macOS**: `~/.local/share/nvim/navireader/`
-- **Windows**: `~/AppData/Local/nvim-data/navireader/`
+ZetRss stores data in Neovim's standard data directory:
+- **Linux/macOS**: `~/.local/share/nvim/zetrss/`
+- **Windows**: `~/AppData/Local/nvim-data/zetrss/`
 
 ```
-~/.local/share/nvim/navireader/
+~/.local/share/nvim/zetrss/
 ├── articles/           # Individual articles as .md files
 │   ├── unique-article-id.md
 │   └── ...

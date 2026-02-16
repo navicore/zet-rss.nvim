@@ -36,11 +36,11 @@ local function format_entry(article)
   )
 end
 
-local function navireader_picker(opts)
+local function zetrss_picker(opts)
   opts = opts or {}
   local picker_type = opts.picker_type or "unread"
 
-  local articles_module = require("navireader.articles")
+  local articles_module = require("zetrss.articles")
   local articles
 
   if opts.query and opts.query ~= "" then
@@ -60,12 +60,12 @@ local function navireader_picker(opts)
   end
 
   if #articles == 0 then
-    local msg = opts.feed_url and "No unread articles for this feed." or "No articles found. Run :NaviReaderFetch to fetch RSS feeds."
+    local msg = opts.feed_url and "No unread articles for this feed." or "No articles found. Run :ZetRss fetch to fetch RSS feeds."
     vim.notify(msg, vim.log.levels.WARN)
     return
   end
 
-  local prompt_title = opts.prompt_title or "NaviReader RSS Articles"
+  local prompt_title = opts.prompt_title or "ZetRss RSS Articles"
 
   pickers.new(opts, {
     prompt_title = prompt_title,
@@ -177,19 +177,19 @@ local function navireader_picker(opts)
         end
 
         local article = selection.value
-        local navireader = require("navireader")
-        local config = navireader.get_config()
+        local zetrss = require("zetrss")
+        local config = zetrss.get_config()
 
         -- Build command with environment variable using env command
-        local binary = config.navireader_bin or "navireader"
+        local binary = config.zetrss_bin or "zetrss"
         -- Generate unique session ID for temp file coordination
         local session_id = vim.fn.system("uuidgen"):gsub("\n", "")
         if session_id == "" then
           -- Fallback if uuidgen is not available
           session_id = tostring(os.time()) .. "-" .. tostring(math.random(1000000))
         end
-        local cmd = string.format("env NAVIREADER_DATA_DIR=%s NAVIREADER_SESSION_ID=%s %s view --id %s",
-          vim.fn.shellescape(config.navireader_path),
+        local cmd = string.format("env ZETRSS_DATA_DIR=%s ZETRSS_SESSION_ID=%s %s view --id %s",
+          vim.fn.shellescape(config.zetrss_path),
           vim.fn.shellescape(session_id),
           binary,
           vim.fn.shellescape(article.id))
@@ -225,11 +225,11 @@ local function navireader_picker(opts)
           })
 
           -- Create autocommand group for cleanup
-          local augroup_name = "NaviReaderTerminal_" .. buf
+          local augroup_name = "ZetRssTerminal_" .. buf
           local ok, augroup = pcall(vim.api.nvim_create_augroup, augroup_name, { clear = true })
 
           if not ok then
-            vim.notify("NaviReader: Failed to create augroup: " .. tostring(augroup), vim.log.levels.ERROR)
+            vim.notify("ZetRss: Failed to create augroup: " .. tostring(augroup), vim.log.levels.ERROR)
           else
             -- Set up autocommand to re-enter terminal mode when window gains focus
             local ok_winenter, err_winenter = pcall(vim.api.nvim_create_autocmd, "WinEnter", {
@@ -242,7 +242,7 @@ local function navireader_picker(opts)
               end,
             })
             if not ok_winenter then
-              vim.notify("NaviReader: Failed to create WinEnter autocmd: " .. tostring(err_winenter), vim.log.levels.ERROR)
+              vim.notify("ZetRss: Failed to create WinEnter autocmd: " .. tostring(err_winenter), vim.log.levels.ERROR)
             end
 
             -- Also handle FocusGained for when returning from another desktop
@@ -256,7 +256,7 @@ local function navireader_picker(opts)
               end,
             })
             if not ok_focus then
-              vim.notify("NaviReader: Failed to create FocusGained autocmd: " .. tostring(err_focus), vim.log.levels.ERROR)
+              vim.notify("ZetRss: Failed to create FocusGained autocmd: " .. tostring(err_focus), vim.log.levels.ERROR)
             end
           end
 
@@ -276,27 +276,27 @@ local function navireader_picker(opts)
                   -- Normal exit - reopen Telescope
                   vim.defer_fn(function()
                     if picker_type == "all" then
-                      require('telescope').extensions.navireader.all()
+                      require('telescope').extensions.zetrss.all()
                     elseif picker_type == "starred" then
-                      require('telescope').extensions.navireader.starred()
+                      require('telescope').extensions.zetrss.starred()
                     elseif picker_type == "search" then
-                      require('telescope').extensions.navireader.search()
+                      require('telescope').extensions.zetrss.search()
                     elseif picker_type == "feed_browse" and opts.feed_url then
                       -- Return to filtered feed view
-                      navireader_picker({
+                      zetrss_picker({
                         feed_url = opts.feed_url,
                         prompt_title = opts.prompt_title,
                         picker_type = "feed_browse",
                       })
                     else
-                      require('telescope').extensions.navireader.navireader()
+                      require('telescope').extensions.zetrss.zetrss()
                     end
                   end, 50)
                 elseif exit_code == 1 then
                   -- Open browser
                   -- Use system temp dir (must match Rust's std::env::temp_dir())
                   local temp_dir = os.getenv("TMPDIR") or "/tmp/"
-                  local temp_file_path = temp_dir .. "navireader_open_url_" .. session_id .. ".txt"
+                  local temp_file_path = temp_dir .. "zetrss_open_url_" .. session_id .. ".txt"
                   local url_file = io.open(temp_file_path, "r")
                   if url_file then
                     local url = url_file:read("*a")
@@ -308,7 +308,7 @@ local function navireader_picker(opts)
                 elseif exit_code == 2 then
                   -- Open note in floating window
                   local temp_dir = os.getenv("TMPDIR") or "/tmp/"
-                  local temp_file_path = temp_dir .. "navireader_note_path_" .. session_id .. ".txt"
+                  local temp_file_path = temp_dir .. "zetrss_note_path_" .. session_id .. ".txt"
                   local note_file = io.open(temp_file_path, "r")
                   if note_file then
                     local note_path = note_file:read("*a")
@@ -345,17 +345,17 @@ local function navireader_picker(opts)
                       end
                       vim.defer_fn(function()
                         if picker_type == "feed_browse" and opts.feed_url then
-                          navireader_picker({
+                          zetrss_picker({
                             feed_url = opts.feed_url,
                             prompt_title = opts.prompt_title,
                             picker_type = "feed_browse",
                           })
                         elseif picker_type == "all" then
-                          require('telescope').extensions.navireader.all()
+                          require('telescope').extensions.zetrss.all()
                         elseif picker_type == "starred" then
-                          require('telescope').extensions.navireader.starred()
+                          require('telescope').extensions.zetrss.starred()
                         else
-                          require('telescope').extensions.navireader.navireader()
+                          require('telescope').extensions.zetrss.zetrss()
                         end
                       end, 50)
                     end
@@ -370,17 +370,17 @@ local function navireader_picker(opts)
                       callback = function()
                         vim.defer_fn(function()
                           if picker_type == "feed_browse" and opts.feed_url then
-                            navireader_picker({
+                            zetrss_picker({
                               feed_url = opts.feed_url,
                               prompt_title = opts.prompt_title,
                               picker_type = "feed_browse",
                             })
                           elseif picker_type == "all" then
-                            require('telescope').extensions.navireader.all()
+                            require('telescope').extensions.zetrss.all()
                           elseif picker_type == "starred" then
-                            require('telescope').extensions.navireader.starred()
+                            require('telescope').extensions.zetrss.starred()
                           else
-                            require('telescope').extensions.navireader.navireader()
+                            require('telescope').extensions.zetrss.zetrss()
                           end
                         end, 50)
                       end,
@@ -389,7 +389,7 @@ local function navireader_picker(opts)
                 elseif exit_code == 3 then
                   -- Open in vim buffer (read-only) in floating window
                   local temp_dir = os.getenv("TMPDIR") or "/tmp/"
-                  local temp_file_path = temp_dir .. "navireader_vim_path_" .. session_id .. ".txt"
+                  local temp_file_path = temp_dir .. "zetrss_vim_path_" .. session_id .. ".txt"
                   local vim_file = io.open(temp_file_path, "r")
                   if vim_file then
                     local article_path = vim_file:read("*a")
@@ -428,17 +428,17 @@ local function navireader_picker(opts)
                       end
                       vim.defer_fn(function()
                         if picker_type == "feed_browse" and opts.feed_url then
-                          navireader_picker({
+                          zetrss_picker({
                             feed_url = opts.feed_url,
                             prompt_title = opts.prompt_title,
                             picker_type = "feed_browse",
                           })
                         elseif picker_type == "all" then
-                          require('telescope').extensions.navireader.all()
+                          require('telescope').extensions.zetrss.all()
                         elseif picker_type == "starred" then
-                          require('telescope').extensions.navireader.starred()
+                          require('telescope').extensions.zetrss.starred()
                         else
-                          require('telescope').extensions.navireader.navireader()
+                          require('telescope').extensions.zetrss.zetrss()
                         end
                       end, 50)
                     end
@@ -453,17 +453,17 @@ local function navireader_picker(opts)
                       callback = function()
                         vim.defer_fn(function()
                           if picker_type == "feed_browse" and opts.feed_url then
-                            navireader_picker({
+                            zetrss_picker({
                               feed_url = opts.feed_url,
                               prompt_title = opts.prompt_title,
                               picker_type = "feed_browse",
                             })
                           elseif picker_type == "all" then
-                            require('telescope').extensions.navireader.all()
+                            require('telescope').extensions.zetrss.all()
                           elseif picker_type == "starred" then
-                            require('telescope').extensions.navireader.starred()
+                            require('telescope').extensions.zetrss.starred()
                           else
-                            require('telescope').extensions.navireader.navireader()
+                            require('telescope').extensions.zetrss.zetrss()
                           end
                         end, 50)
                       end,
@@ -475,7 +475,7 @@ local function navireader_picker(opts)
           })
 
           if not ok_term then
-            vim.notify("NaviReader: Failed to start terminal: " .. tostring(job_id), vim.log.levels.ERROR)
+            vim.notify("ZetRss: Failed to start terminal: " .. tostring(job_id), vim.log.levels.ERROR)
             if vim.api.nvim_win_is_valid(win) then
               vim.api.nvim_win_close(win, true)
             end
@@ -498,8 +498,8 @@ local function navireader_picker(opts)
           actions.close(prompt_bufnr)
 
           local article = selection.value
-          local navireader = require("navireader")
-          local config = navireader.get_config()
+          local zetrss = require("zetrss")
+          local config = zetrss.get_config()
 
           -- Generate filename
           local date = vim.fn.strftime("%Y%m%d%H%M")
@@ -535,7 +535,7 @@ local function navireader_picker(opts)
           vim.notify("Created note: " .. filename)
 
           -- Mark as read
-          local articles_module = require("navireader.articles")
+          local articles_module = require("zetrss.articles")
           articles_module.mark_as_read(article.id)
         end
       end)
@@ -545,25 +545,25 @@ local function navireader_picker(opts)
   }):find()
 end
 
-function M.navireader(opts)
-  navireader_picker(opts)
+function M.zetrss(opts)
+  zetrss_picker(opts)
 end
 
 function M.all(opts)
   -- Show all articles including read ones
-  navireader_picker(vim.tbl_extend("force", opts or {}, { show_read = true }))
+  zetrss_picker(vim.tbl_extend("force", opts or {}, { show_read = true }))
 end
 
 function M.search(opts)
   vim.ui.input({ prompt = "Search RSS articles: " }, function(query)
     if query then
-      navireader_picker(vim.tbl_extend("force", opts or {}, { query = query }))
+      zetrss_picker(vim.tbl_extend("force", opts or {}, { query = query }))
     end
   end)
 end
 
 function M.starred(opts)
-  local articles_module = require("navireader.articles")
+  local articles_module = require("zetrss.articles")
   local all_articles = articles_module.get_articles()
   local starred = {}
 
@@ -580,22 +580,22 @@ function M.starred(opts)
 
   opts = opts or {}
   opts.prompt_title = "Starred Articles"
-  navireader_picker(vim.tbl_extend("force", opts, { articles = starred, picker_type = "starred" }))
+  zetrss_picker(vim.tbl_extend("force", opts, { articles = starred, picker_type = "starred" }))
 end
 
 function M.feeds(opts)
   opts = opts or {}
 
-  local articles_module = require("navireader.articles")
+  local articles_module = require("zetrss.articles")
   local feeds = articles_module.get_feeds()
 
   if #feeds == 0 then
-    vim.notify("No feeds found. Run :NaviReader scan first.", vim.log.levels.WARN)
+    vim.notify("No feeds found. Run :ZetRss scan first.", vim.log.levels.WARN)
     return
   end
 
   pickers.new(opts, {
-    prompt_title = "NaviReader RSS Feeds",
+    prompt_title = "ZetRss RSS Feeds",
     finder = finders.new_table({
       results = feeds,
       entry_maker = function(feed)
@@ -668,11 +668,11 @@ end
 function M.browse_feeds(opts)
   opts = opts or {}
 
-  local articles_module = require("navireader.articles")
+  local articles_module = require("zetrss.articles")
   local feeds = articles_module.get_feeds_with_stats()
 
   if #feeds == 0 then
-    vim.notify("No feeds found. Run :NaviReader scan first.", vim.log.levels.WARN)
+    vim.notify("No feeds found. Run :ZetRss scan first.", vim.log.levels.WARN)
     return
   end
 
@@ -732,7 +732,7 @@ function M.browse_feeds(opts)
 
         -- Open article picker filtered to this feed
         vim.defer_fn(function()
-          navireader_picker({
+          zetrss_picker({
             feed_url = feed.url,
             prompt_title = "Articles: " .. domain,
             picker_type = "feed_browse",
@@ -750,7 +750,7 @@ return require("telescope").register_extension({
     -- Extension setup if needed
   end,
   exports = {
-    navireader = M.navireader,
+    zetrss = M.zetrss,
     all = M.all,
     search = M.search,
     starred = M.starred,

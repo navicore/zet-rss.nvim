@@ -9,7 +9,7 @@ use chrono::Utc;
 /// Returns an error if the fetch fails or the feed is invalid
 pub async fn fetch_feed(url: &str) -> Result<Feed> {
     let client = reqwest::Client::builder()
-        .user_agent("NaviReader/0.1")
+        .user_agent("ZetRss/0.1")
         .timeout(std::time::Duration::from_secs(30))
         .build()?;
 

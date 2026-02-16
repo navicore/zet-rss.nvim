@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 
 #[derive(Parser)]
-#[command(name = "navireader")]
+#[command(name = "zetrss")]
 #[command(about = "RSS reader integrated with your Zettelkasten", long_about = None)]
 struct Cli {
     #[command(subcommand)]

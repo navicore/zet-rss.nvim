@@ -3,7 +3,7 @@
 Cargo.lock
 
 # Compiled binary (built on user's machine)
-/lua/navireader/bin/
+/lua/zetrss/bin/
 /bin/
 
 # Editor files
@@ -13,4 +13,4 @@ Cargo.lock
 .DS_Store
 
 # User's RSS cache (if testing locally)
-/.navireader/
+/.zetrss/

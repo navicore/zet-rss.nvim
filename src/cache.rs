@@ -21,17 +21,17 @@ impl TextCache {
     /// Initializes the data directory structure if it doesn't exist
     pub fn new() -> Result<Self> {
         // Check if running from Neovim and use its data directory
-        let base_dir = if let Ok(nvim_data) = std::env::var("NAVIREADER_DATA_DIR") {
+        let base_dir = if let Ok(nvim_data) = std::env::var("ZETRSS_DATA_DIR") {
             // If Neovim sets this env var, use it
             PathBuf::from(nvim_data)
         } else {
             // Otherwise use XDG data directory standard
             if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
-                PathBuf::from(xdg_data).join("navireader")
+                PathBuf::from(xdg_data).join("zetrss")
             } else {
-                // Fallback to ~/.local/share/navireader (XDG default)
+                // Fallback to ~/.local/share/zetrss (XDG default)
                 let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-                PathBuf::from(home).join(".local/share/navireader")
+                PathBuf::from(home).join(".local/share/zetrss")
             }
         };
 

@@ -1,18 +1,18 @@
 -- Test launching viewer directly without Telescope
 local function launch_viewer_test()
   -- Get first article
-  local articles = require("navireader.articles").get_articles(1)
+  local articles = require("zetrss.articles").get_articles(1)
   if #articles == 0 then
     vim.notify("No articles found", vim.log.levels.ERROR)
     return
   end
 
   local article = articles[1]
-  local navireader = require("navireader")
-  local config = navireader.get_config()
+  local zetrss = require("zetrss")
+  local config = zetrss.get_config()
 
   -- Build command
-  local binary = config.navireader_bin or "navireader"
+  local binary = config.zetrss_bin or "zetrss"
   local cmd = string.format("%s view --id %s", binary, vim.fn.shellescape(article.id))
 
   print("Command: " .. cmd)

@@ -1,9 +1,9 @@
 local M = {}
 
 local config = {
-  navireader_path = vim.fn.stdpath("data") .. "/navireader",
+  zetrss_path = vim.fn.stdpath("data") .. "/zetrss",
   zet_path = nil,
-  navireader_bin = nil,
+  zetrss_bin = nil,
 }
 
 function M.setup(opts)
@@ -14,34 +14,34 @@ function M.setup(opts)
     -- Get username and set default zet path
     local username = vim.fn.system("whoami"):gsub("\n", "")
     local defaults = {
-      navireader_path = vim.fn.stdpath("data") .. "/navireader",
+      zetrss_path = vim.fn.stdpath("data") .. "/zetrss",
       zet_path = vim.fn.expand("~/git/" .. username .. "/zet"),
-      navireader_bin = nil,
+      zetrss_bin = nil,
     }
 
     config = vim.tbl_deep_extend("force", defaults, opts)
 
   -- Find binary
   local plugin_path = debug.getinfo(1).source:match("@?(.*/)") or ""
-  local binary_path = plugin_path .. "bin/navireader"
+  local binary_path = plugin_path .. "bin/zetrss"
 
   if vim.fn.executable(binary_path) == 1 then
-    config.navireader_bin = binary_path
+    config.zetrss_bin = binary_path
   else
     -- Try system PATH
-    local which_result = vim.fn.system("which navireader 2>/dev/null"):gsub("\n", "")
+    local which_result = vim.fn.system("which zetrss 2>/dev/null"):gsub("\n", "")
     if which_result ~= "" then
-      config.navireader_bin = which_result
+      config.zetrss_bin = which_result
     end
   end
 
   -- Create main command with subcommands
-  vim.api.nvim_create_user_command("NaviReader", function(opts)
+  vim.api.nvim_create_user_command("ZetRss", function(opts)
     local subcommand = opts.args
 
     if subcommand == "" or subcommand == "browse" then
       -- Default action: browse unread articles
-      require('telescope').extensions.navireader.navireader()
+      require('telescope').extensions.zetrss.zetrss()
     elseif subcommand == "scan" then
       M.scan()
     elseif subcommand == "fetch" then
@@ -49,15 +49,15 @@ function M.setup(opts)
     elseif subcommand == "update" then
       M.fetch(true)
     elseif subcommand == "all" then
-      require('telescope').extensions.navireader.all()
+      require('telescope').extensions.zetrss.all()
     elseif subcommand == "search" then
-      require('telescope').extensions.navireader.search()
+      require('telescope').extensions.zetrss.search()
     elseif subcommand == "starred" then
-      require('telescope').extensions.navireader.starred()
+      require('telescope').extensions.zetrss.starred()
     elseif subcommand == "feeds" then
-      require('telescope').extensions.navireader.feeds()
+      require('telescope').extensions.zetrss.feeds()
     elseif subcommand == "browse-feeds" then
-      require('telescope').extensions.navireader.browse_feeds()
+      require('telescope').extensions.zetrss.browse_feeds()
     elseif subcommand == "clear-cache" then
       M.clear_cache()
     elseif subcommand == "mark-all-read" then
@@ -96,32 +96,32 @@ function M.setup(opts)
         "clear-cache"
       })
     end,
-    desc = "NaviReader RSS reader commands"
+    desc = "ZetRss RSS reader commands"
   })
 
     -- Don't load Telescope extension in setup - let user do it manually
     -- This might be causing conflicts with markdown files
     -- local ok, telescope = pcall(require, 'telescope')
     -- if ok then
-    --   telescope.load_extension('navireader')
+    --   telescope.load_extension('zetrss')
     -- end
   end)
 
   if not ok then
-    vim.notify("NaviReader setup failed: " .. tostring(err), vim.log.levels.ERROR)
+    vim.notify("ZetRss setup failed: " .. tostring(err), vim.log.levels.ERROR)
   end
 end
 
 function M.scan()
-  if not config.navireader_bin then
-    vim.notify("navireader binary not found! Please build it with 'make build' in plugin directory", vim.log.levels.ERROR)
+  if not config.zetrss_bin then
+    vim.notify("zetrss binary not found! Please build it with 'make build' in plugin directory", vim.log.levels.ERROR)
     return
   end
 
   -- Use env command to set environment variable
-  local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s scan --path %s",
-    vim.fn.shellescape(config.navireader_path),
-    config.navireader_bin,
+  local cmd = string.format("env ZETRSS_DATA_DIR=%s %s scan --path %s",
+    vim.fn.shellescape(config.zetrss_path),
+    config.zetrss_bin,
     vim.fn.shellescape(config.zet_path))
 
   vim.notify("Scanning for RSS feeds...", vim.log.levels.INFO)
@@ -145,15 +145,15 @@ function M.scan()
 end
 
 function M.fetch(update)
-  if not config.navireader_bin then
-    vim.notify("navireader binary not found! Please build it with 'make build' in plugin directory", vim.log.levels.ERROR)
+  if not config.zetrss_bin then
+    vim.notify("zetrss binary not found! Please build it with 'make build' in plugin directory", vim.log.levels.ERROR)
     return
   end
 
   -- Use env command to set environment variable
-  local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s fetch",
-    vim.fn.shellescape(config.navireader_path),
-    config.navireader_bin)
+  local cmd = string.format("env ZETRSS_DATA_DIR=%s %s fetch",
+    vim.fn.shellescape(config.zetrss_path),
+    config.zetrss_bin)
   if update then
     cmd = cmd .. " --update"
   end
@@ -180,7 +180,7 @@ end
 
 function M.mark_all_read()
   -- Count unread articles first
-  local articles = require("navireader.articles")
+  local articles = require("zetrss.articles")
   local all_articles = articles.get_articles(nil, {show_read = false})
   local unread_count = 0
 
@@ -204,9 +204,9 @@ function M.mark_all_read()
   vim.ui.input({ prompt = message }, function(input)
     if input and (input:lower() == "y" or input:lower() == "yes") then
       -- Call the Rust backend to mark all as read
-      local binary = config.navireader_bin or "navireader"
-      local cmd = string.format("env NAVIREADER_DATA_DIR=%s %s mark-all-read 2>&1",
-        vim.fn.shellescape(config.navireader_path),
+      local binary = config.zetrss_bin or "zetrss"
+      local cmd = string.format("env ZETRSS_DATA_DIR=%s %s mark-all-read 2>&1",
+        vim.fn.shellescape(config.zetrss_path),
         binary)
 
       local result = vim.fn.system(cmd)
@@ -224,7 +224,7 @@ end
 
 function M.clear_cache()
   -- Get article count for informative message
-  local articles_dir = config.navireader_path .. "/articles"
+  local articles_dir = config.zetrss_path .. "/articles"
   local count = 0
   local handle = io.popen("ls " .. vim.fn.shellescape(articles_dir) .. "/*.md 2>/dev/null | wc -l")
   if handle then
@@ -241,9 +241,8 @@ function M.clear_cache()
     if input and (input:lower() == "y" or input:lower() == "yes") then
       -- Clear the directories
       local paths = {
-        config.navireader_path,
-        vim.fn.expand("~/.local/share/navireader"),  -- Fallback location
-        vim.fn.expand("~/.navireader"),  -- Old location if it exists
+        config.zetrss_path,
+        vim.fn.expand("~/.local/share/zetrss"),  -- Fallback location
       }
 
       local cleared = false
@@ -255,7 +254,7 @@ function M.clear_cache()
       end
 
       if cleared then
-        vim.notify("NaviReader cache cleared! Run :NaviReaderScan and :NaviReaderFetch to get fresh articles.", vim.log.levels.INFO)
+        vim.notify("ZetRss cache cleared! Run :ZetRss scan and :ZetRss fetch to get fresh articles.", vim.log.levels.INFO)
       else
         vim.notify("No cache found to clear.", vim.log.levels.WARN)
       end
