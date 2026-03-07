@@ -1,6 +1,10 @@
 # zet-rss.nvim
 
-A privacy-focused RSS reader that integrates seamlessly with your Neovim Zettelkasten workflow. No servers, no databases - just text files and a fast Rust backend with a beautiful TUI viewer.
+A privacy-focused RSS reader that integrates seamlessly with your Neovim
+Zettelkasten workflow. No servers, no databases - just text files and a fast
+Rust backend with a beautiful TUI viewer.
+
+This project and repo was formerly named `navireader`
 
 ## Features
 
