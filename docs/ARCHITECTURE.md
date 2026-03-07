@@ -2,7 +2,7 @@
 
 ## Context & Scope
 
-zet-rss.nvim is a privacy-focused RSS reader that runs entirely inside Neovim. It discovers RSS feeds from a user's Zettelkasten markdown notes, fetches articles, and presents them through Telescope pickers and a Ratatui-based TUI viewer. Formerly named `navireader`.
+zet-rss.nvim is a companion plugin to [zet.nvim](https://github.com/navicore/zet.nvim) that adds RSS reading to the Zettelkasten workflow. It discovers feeds from zet notes, fetches articles, and presents them through Telescope pickers and a Ratatui-based TUI viewer. Formerly named `navireader`.
 
 **External interactions:**
 - RSS/Atom feeds over HTTP (fetched via `reqwest`)
@@ -27,10 +27,10 @@ zet-rss.nvim is a privacy-focused RSS reader that runs entirely inside Neovim. I
 | Module | Responsibility |
 |---|---|
 | `main.rs` | CLI entry point, subcommand dispatch (scan, fetch, view, mark-read, mark-all-read, list-feeds) |
-| `models.rs` | Core domain types: `FeedItem`, `Feed`, `SearchResult` |
+| `models.rs` | Core domain types: `FeedItem`, `Feed` |
 | `scanner.rs` | Walks Zettelkasten directory, finds `#feed <url>` patterns in markdown files. Returns `FeedSource` (url + source file + line number) |
 | `fetcher.rs` | HTTP fetch of RSS/Atom feeds via `reqwest` + `feed-rs`, converts to `Feed`/`FeedItem` |
-| `cache.rs` | `TextCache` struct: reads/writes article markdown files, manages feed lists (`state/feeds.json`), handles read/starred state updates, search |
+| `cache.rs` | `TextCache` struct: reads/writes article markdown files, manages feed lists (`state/feeds.json`), handles read/starred state updates. Constructors: `new()` (from env/XDG) and `with_base_dir()` (explicit path, used by tests) |
 | `viewer.rs` | Ratatui TUI for reading a single article. Communicates actions (open browser, create note, open in vim) via exit codes + temp files |
 | `lib.rs` | Re-exports all modules for library use |
 
