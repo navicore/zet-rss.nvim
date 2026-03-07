@@ -1,14 +1,12 @@
-use anyhow::{Result, Context};
 use crate::models::{Feed, FeedItem};
-use chrono::{Utc, DateTime};
+use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 #[path = "cache_tests.rs"]
 mod tests;
-use serde_json;
-
 /// Text-based cache for RSS articles and feeds
 /// Stores articles as markdown files with YAML frontmatter
 pub struct TextCache {
@@ -35,13 +33,21 @@ impl TextCache {
             }
         };
 
+        Self::with_base_dir(base_dir)
+    }
+
+    /// Creates a new TextCache with an explicit base directory
+    pub fn with_base_dir(base_dir: PathBuf) -> Result<Self> {
         fs::create_dir_all(&base_dir)?;
         let articles_dir = base_dir.join("articles");
         fs::create_dir_all(&articles_dir)?;
         fs::create_dir_all(base_dir.join("feeds"))?;
         fs::create_dir_all(base_dir.join("state"))?;
 
-        Ok(Self { base_dir, articles_dir })
+        Ok(Self {
+            base_dir,
+            articles_dir,
+        })
     }
 
     /// Stores a feed's articles to disk
@@ -72,7 +78,8 @@ impl TextCache {
             self.store_article(&item_to_store)?;
         }
 
-        let feed_meta_path = self.base_dir
+        let feed_meta_path = self
+            .base_dir
             .join("feeds")
             .join(format!("{}.json", sanitize_filename(&feed.url)));
 
@@ -92,7 +99,7 @@ impl TextCache {
         let filename = format!(
             "{}-{}.md",
             item.published
-                .unwrap_or_else(|| Utc::now())
+                .unwrap_or_else(Utc::now)
                 .format("%Y%m%d-%H%M%S"),
             sanitize_filename(&item.id)
         );
@@ -149,11 +156,7 @@ starred: false
 
         let mut entries: Vec<_> = fs::read_dir(&articles_dir)?
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.path()
-                    .extension()
-                    .map_or(false, |ext| ext == "md")
-            })
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
             .collect();
 
         entries.sort_by_key(|e| {
@@ -174,7 +177,7 @@ starred: false
         Ok(articles)
     }
 
-    /// Get a single article by ID with O(1) lookup
+    /// Get a single article by ID (linear scan)
     pub fn get_article_by_id(&self, article_id: &str) -> Result<Option<FeedItem>> {
         // We need to read all articles and match by the ID in the frontmatter, not filename
         // because filenames can have collisions (e.g., newsletter vs 2020/newsletter)
@@ -195,7 +198,10 @@ starred: false
 
         let parts: Vec<&str> = content.splitn(3, "---").collect();
         if parts.len() < 3 {
-            return Err(anyhow::anyhow!("Invalid article format in {}: expected YAML frontmatter", path.display()));
+            return Err(anyhow::anyhow!(
+                "Invalid article format in {}: expected YAML frontmatter",
+                path.display()
+            ));
         }
 
         let frontmatter = parts[1];
@@ -259,33 +265,14 @@ starred: false
             .with_context(|| format!("Failed to mark article {} as read", item_id))
     }
 
-    pub fn mark_as_unread(&self, item_id: &str) -> Result<()> {
-        self.update_article_state(item_id, "read", "false")
-    }
-
     /// Toggles the starred status of an article
     /// Updates the YAML frontmatter in the article file
     pub fn toggle_star(&self, item_id: &str) -> Result<()> {
-        // Find the article file that ends with the ID
-        let mut article_path = None;
-        for entry in fs::read_dir(&self.articles_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if let Some(file_name) = path.file_name() {
-                let file_name = file_name.to_string_lossy();
-                if file_name.ends_with(&format!("-{}.md", sanitize_filename(item_id))) {
-                    article_path = Some(path);
-                    break;
-                }
-            }
-        }
-
-        let article_path = article_path.ok_or_else(|| anyhow::anyhow!("Article not found: {}", item_id))?;
-
-        let content = fs::read_to_string(&article_path)
-            .with_context(|| format!("Failed to read article {}", item_id))?;
-        let is_starred = content.contains("starred: true");
-        let new_value = if is_starred { "false" } else { "true" };
+        // Find the article by reading frontmatter ID (consistent with update_article_state)
+        let article = self
+            .get_article_by_id(item_id)?
+            .ok_or_else(|| anyhow::anyhow!("Article not found: {}", item_id))?;
+        let new_value = if article.starred { "false" } else { "true" };
         self.update_article_state(item_id, "starred", new_value)
             .with_context(|| format!("Failed to toggle star for article {}", item_id))
     }
@@ -296,10 +283,13 @@ starred: false
         for entry in fs::read_dir(&self.articles_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "md") {
+            if path.extension().is_some_and(|ext| ext == "md") {
                 if let Ok(content) = fs::read_to_string(&path) {
                     // Check if this file contains the matching ID in frontmatter
-                    if content.lines().any(|line| line.trim() == format!("id: {}", item_id)) {
+                    if content
+                        .lines()
+                        .any(|line| line.trim() == format!("id: {}", item_id))
+                    {
                         article_path = Some(path);
                         break;
                     }
@@ -307,70 +297,29 @@ starred: false
             }
         }
 
-        let article_path = article_path.ok_or_else(|| anyhow::anyhow!("Article not found: {}", item_id))?;
+        let article_path =
+            article_path.ok_or_else(|| anyhow::anyhow!("Article not found: {}", item_id))?;
 
         let content = fs::read_to_string(&article_path)
             .with_context(|| format!("Failed to read article {}", item_id))?;
-                    let old_line = format!("{}: ", field);
-                    let new_line = format!("{}: {}", field, value);
+        let old_line = format!("{}: ", field);
+        let new_line = format!("{}: {}", field, value);
 
-                    let updated = content
-                        .lines()
-                        .map(|line| {
-                            if line.starts_with(&old_line) {
-                                new_line.clone()
-                            } else {
-                                line.to_string()
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
+        let updated = content
+            .lines()
+            .map(|line| {
+                if line.starts_with(&old_line) {
+                    new_line.clone()
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
         fs::write(&article_path, updated)
             .with_context(|| format!("Failed to update article {}", item_id))?;
         Ok(())
-    }
-
-    pub fn search_articles(&self, query: &str) -> Result<Vec<FeedItem>> {
-        let mut results = Vec::new();
-        let articles_dir = self.base_dir.join("articles");
-        let query_lower = query.to_lowercase();
-
-        for entry in fs::read_dir(&articles_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.extension().map_or(false, |ext| ext == "md") {
-                let content = fs::read_to_string(&path)?;
-                if content.to_lowercase().contains(&query_lower) {
-                    if let Ok(item) = self.parse_article_file(&path) {
-                        results.push(item);
-                    }
-                }
-            }
-        }
-
-        results.sort_by(|a, b| b.published.cmp(&a.published));
-        Ok(results)
-    }
-
-    pub fn get_unread_count(&self) -> Result<usize> {
-        let articles_dir = self.base_dir.join("articles");
-        let mut count = 0;
-
-        for entry in fs::read_dir(&articles_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.extension().map_or(false, |ext| ext == "md") {
-                let content = fs::read_to_string(&path)?;
-                if content.contains("read: false") {
-                    count += 1;
-                }
-            }
-        }
-
-        Ok(count)
     }
 
     pub fn store_feed_list(&self, feeds: Vec<crate::scanner::FeedSource>) -> Result<()> {

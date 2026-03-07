@@ -1,8 +1,7 @@
-use anyhow::{Result, anyhow};
-use feed_rs::parser;
-use reqwest;
 use crate::models::{Feed, FeedItem};
+use anyhow::{anyhow, Result};
 use chrono::Utc;
+use feed_rs::parser;
 
 /// Fetches an RSS/Atom feed from the given URL
 /// Parses the feed and converts it to our internal Feed model
@@ -26,26 +25,28 @@ pub async fn fetch_feed(url: &str) -> Result<Feed> {
 
     for entry in feed.entries {
         let id = entry.id.clone();
-        let title = entry.title
+        let title = entry
+            .title
             .map(|t| t.content)
             .unwrap_or_else(|| "Untitled".to_string());
 
-        let link = entry.links
+        let link = entry
+            .links
             .first()
             .map(|l| l.href.clone())
             .unwrap_or_else(|| url.to_string());
 
         let description = entry.summary.map(|s| s.content);
 
-        let published = entry.published
+        let published = entry
+            .published
             .or(entry.updated)
             .map(|d| d.with_timezone(&Utc));
 
-        let author = entry.authors
-            .first()
-            .and_then(|a| Some(a.name.clone()));
+        let author = entry.authors.first().map(|a| a.name.clone());
 
-        let content = entry.content
+        let content = entry
+            .content
             .and_then(|c| c.body)
             .or_else(|| description.clone());
 
@@ -64,7 +65,8 @@ pub async fn fetch_feed(url: &str) -> Result<Feed> {
         });
     }
 
-    let feed_title = feed.title
+    let feed_title = feed
+        .title
         .map(|t| t.content)
         .unwrap_or_else(|| url.to_string());
 

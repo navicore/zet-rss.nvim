@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeedItem {
@@ -24,10 +24,4 @@ pub struct Feed {
     pub description: Option<String>,
     pub last_fetched: Option<DateTime<Utc>>,
     pub items: Vec<FeedItem>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SearchResult {
-    pub items: Vec<FeedItem>,
-    pub total: usize,
 }

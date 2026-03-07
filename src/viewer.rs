@@ -1,5 +1,5 @@
-use anyhow::{Result, Context};
-use uuid::Uuid;
+use crate::cache::TextCache;
+use anyhow::{Context, Result};
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -9,21 +9,21 @@ use ratatui::{
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame, Terminal,
 };
-use std::io::{self, Write};
 use std::fs::OpenOptions;
+use std::io::{self, Write};
 use std::os::unix::fs::OpenOptionsExt;
-use crate::cache::TextCache;
+use uuid::Uuid;
 
 /// Runs the TUI article viewer for the specified article
 /// Returns an exit code: 0=normal, 1=open browser, 2=create note
 pub fn run_viewer(article_id: &str) -> Result<i32> {
     // Get session ID from environment or generate new one
-    let session_id = std::env::var("ZETRSS_SESSION_ID")
-        .unwrap_or_else(|_| Uuid::new_v4().to_string());
+    let session_id =
+        std::env::var("ZETRSS_SESSION_ID").unwrap_or_else(|_| Uuid::new_v4().to_string());
 
     // Setup terminal
     enable_raw_mode()?;
@@ -33,14 +33,20 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
     let mut terminal = Terminal::new(backend)?;
 
     // Load article
-    let cache = TextCache::new()
-        .context("Failed to initialize article cache")?;
-    let article = cache.get_article_by_id(article_id)
+    let cache = TextCache::new().context("Failed to initialize article cache")?;
+    let article = cache
+        .get_article_by_id(article_id)
         .with_context(|| format!("Failed to load article {}", article_id))?
-        .ok_or_else(|| anyhow::anyhow!("Article not found: {}. Try running 'zetrss fetch' to update articles.", article_id))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Article not found: {}. Try running 'zetrss fetch' to update articles.",
+                article_id
+            )
+        })?;
 
     // Mark as read
-    cache.mark_as_read(&article.id)
+    cache
+        .mark_as_read(&article.id)
         .with_context(|| format!("Failed to mark article {} as read", article_id))?;
 
     // Prepare content for display
@@ -80,10 +86,7 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
 
     // Restore terminal
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
 
     if let Err(err) = res {
@@ -104,14 +107,13 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
                 .create(true)
                 .write(true)
                 .truncate(true)
-                .mode(0o600)  // Only owner can read/write
+                .mode(0o600) // Only owner can read/write
                 .open(&temp_file)
                 .context("Failed to create temp file for URL")?;
 
             file.write_all(article.link.as_bytes())
                 .context("Failed to write URL to temp file")?;
-            file.sync_all()
-                .context("Failed to sync URL file to disk")?;
+            file.sync_all().context("Failed to sync URL file to disk")?;
             1
         }
         ViewerMode::CreateNote => {
@@ -126,7 +128,7 @@ pub fn run_viewer(article_id: &str) -> Result<i32> {
                     .create(true)
                     .write(true)
                     .truncate(true)
-                    .mode(0o600)  // Only owner can read/write
+                    .mode(0o600) // Only owner can read/write
                     .open(&temp_file)
                     .context("Failed to create temp file for note path")?;
 
@@ -178,7 +180,10 @@ struct ViewerApp {
     content_lines: Vec<String>,
 }
 
-fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut ViewerApp) -> io::Result<()> {
+fn run_app(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    app: &mut ViewerApp,
+) -> io::Result<()> {
     // Calculate max scroll based on content
     let content_height = app.content_lines.len() as u16;
 
@@ -189,49 +194,57 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut View
         if let Event::Key(key) = event::read()? {
             // Handle all key events
             match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => {
-                        return Ok(());
-                    }
-                    KeyCode::Char('o') => {
-                        app.mode = ViewerMode::OpenBrowser;
-                        return Ok(());
-                    }
-                    KeyCode::Char('n') => {
-                        app.mode = ViewerMode::CreateNote;
-                        return Ok(());
-                    }
-                    KeyCode::Char('v') => {
-                        app.mode = ViewerMode::OpenInVim;
-                        return Ok(());
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        let viewport_height = terminal.size()?.height.saturating_sub(7); // Account for header/footer
-                        let max_scroll = content_height.saturating_sub(viewport_height);
-                        if app.scroll < max_scroll {
-                            app.scroll = app.scroll.saturating_add(1);
+                KeyCode::Char('q') | KeyCode::Esc => {
+                    return Ok(());
+                }
+                KeyCode::Char('o') => {
+                    app.mode = ViewerMode::OpenBrowser;
+                    return Ok(());
+                }
+                KeyCode::Char('n') => {
+                    app.mode = ViewerMode::CreateNote;
+                    return Ok(());
+                }
+                KeyCode::Char('s') => {
+                    let cache = TextCache::new().ok();
+                    if let Some(cache) = cache {
+                        if cache.toggle_star(&app.article.id).is_ok() {
+                            app.article.starred = !app.article.starred;
                         }
                     }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        app.scroll = app.scroll.saturating_sub(1);
+                }
+                KeyCode::Char('v') => {
+                    app.mode = ViewerMode::OpenInVim;
+                    return Ok(());
+                }
+                KeyCode::Char('j') | KeyCode::Down => {
+                    let viewport_height = terminal.size()?.height.saturating_sub(7); // Account for header/footer
+                    let max_scroll = content_height.saturating_sub(viewport_height);
+                    if app.scroll < max_scroll {
+                        app.scroll = app.scroll.saturating_add(1);
                     }
-                    KeyCode::PageDown | KeyCode::Char(' ') => {
-                        let viewport_height = terminal.size()?.height.saturating_sub(7);
-                        let max_scroll = content_height.saturating_sub(viewport_height);
-                        app.scroll = (app.scroll + viewport_height).min(max_scroll);
-                    }
-                    KeyCode::PageUp => {
-                        let viewport_height = terminal.size()?.height.saturating_sub(7);
-                        app.scroll = app.scroll.saturating_sub(viewport_height);
-                    }
-                    KeyCode::Char('g') | KeyCode::Home => {
-                        app.scroll = 0;
-                    }
-                    KeyCode::Char('G') | KeyCode::End => {
-                        let viewport_height = terminal.size()?.height.saturating_sub(7);
-                        let max_scroll = content_height.saturating_sub(viewport_height);
-                        app.scroll = max_scroll;
-                    }
-                    _ => {}
+                }
+                KeyCode::Char('k') | KeyCode::Up => {
+                    app.scroll = app.scroll.saturating_sub(1);
+                }
+                KeyCode::PageDown | KeyCode::Char(' ') => {
+                    let viewport_height = terminal.size()?.height.saturating_sub(7);
+                    let max_scroll = content_height.saturating_sub(viewport_height);
+                    app.scroll = (app.scroll + viewport_height).min(max_scroll);
+                }
+                KeyCode::PageUp => {
+                    let viewport_height = terminal.size()?.height.saturating_sub(7);
+                    app.scroll = app.scroll.saturating_sub(viewport_height);
+                }
+                KeyCode::Char('g') | KeyCode::Home => {
+                    app.scroll = 0;
+                }
+                KeyCode::Char('G') | KeyCode::End => {
+                    let viewport_height = terminal.size()?.height.saturating_sub(7);
+                    let max_scroll = content_height.saturating_sub(viewport_height);
+                    app.scroll = max_scroll;
+                }
+                _ => {}
             }
         }
     }
@@ -241,9 +254,9 @@ fn ui(f: &mut Frame, app: &ViewerApp) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4),  // Header
-            Constraint::Min(10),    // Content
-            Constraint::Length(3),  // Footer
+            Constraint::Length(4), // Header
+            Constraint::Min(10),   // Content
+            Constraint::Length(3), // Footer
         ])
         .split(f.size());
 
@@ -254,14 +267,12 @@ fn ui(f: &mut Frame, app: &ViewerApp) {
 
 fn render_header(f: &mut Frame, area: Rect, app: &ViewerApp) {
     let header_text = vec![
-        Line::from(vec![
-            Span::styled(
-                app.article.title.clone(),
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            ),
-        ]),
+        Line::from(vec![Span::styled(
+            app.article.title.clone(),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )]),
         Line::from(vec![
             Span::raw("Feed: "),
             Span::styled(
@@ -332,7 +343,12 @@ fn render_footer(f: &mut Frame, area: Rect) {
         Span::raw(" Browser  "),
         Span::styled(" n ", Style::default().bg(Color::DarkGray).fg(Color::White)),
         Span::raw(" Note  "),
-        Span::styled(" j/k ", Style::default().bg(Color::DarkGray).fg(Color::White)),
+        Span::styled(" s ", Style::default().bg(Color::DarkGray).fg(Color::White)),
+        Span::raw(" Star  "),
+        Span::styled(
+            " j/k ",
+            Style::default().bg(Color::DarkGray).fg(Color::White),
+        ),
         Span::raw(" Scroll  "),
     ]);
 
@@ -347,22 +363,6 @@ fn render_footer(f: &mut Frame, area: Rect) {
     f.render_widget(footer, area);
 }
 
-fn open_in_browser(url: &str) {
-    // This function is no longer used since we handle browser opening in Lua
-    // Kept for potential future use outside of Neovim context
-    let open_cmd = if cfg!(target_os = "macos") {
-        "open"
-    } else if cfg!(target_os = "linux") {
-        "xdg-open"
-    } else {
-        return;
-    };
-
-    let _ = std::process::Command::new(open_cmd)
-        .arg(url)
-        .spawn();
-}
-
 fn create_note_from_article(article: &crate::models::FeedItem) -> Result<String> {
     let username = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
@@ -374,7 +374,8 @@ fn create_note_from_article(article: &crate::models::FeedItem) -> Result<String>
 
     let zet_path = format!("{}/git/{}/zet", home, username);
     let date = chrono::Local::now().format("%Y%m%d%H%M").to_string();
-    let safe_title = article.title
+    let safe_title = article
+        .title
         .chars()
         .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
         .collect::<String>()

@@ -1,9 +1,9 @@
 use anyhow::Result;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use walkdir::WalkDir;
-use serde::{Deserialize, Serialize};
 
 /// Information about a discovered feed
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ pub async fn scan_markdown_for_feeds(zet_path: &str) -> Result<Vec<FeedSource>> 
         .follow_links(true)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "md"))
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
     {
         let path = entry.path();
         let content = fs::read_to_string(path)?;
@@ -37,15 +37,18 @@ pub async fn scan_markdown_for_feeds(zet_path: &str) -> Result<Vec<FeedSource>> 
                 if let Some(url) = cap.get(1) {
                     let url_str = url.as_str().trim();
                     // Clean up the URL - remove trailing punctuation that might not be part of URL
-                    let url_str = url_str.trim_end_matches(|c: char| c == '.' || c == ',' || c == ')' || c == ']' || c == '>');
+                    let url_str = url_str.trim_end_matches(['.', ',', ')', ']', '>']);
 
                     // Only insert if we haven't seen this URL before
                     if !feeds.contains_key(url_str) {
-                        feeds.insert(url_str.to_string(), FeedSource {
-                            url: url_str.to_string(),
-                            source_file: path.to_string_lossy().to_string(),
-                            line_number: line_num + 1, // 1-indexed for editors
-                        });
+                        feeds.insert(
+                            url_str.to_string(),
+                            FeedSource {
+                                url: url_str.to_string(),
+                                source_file: path.to_string_lossy().to_string(),
+                                line_number: line_num + 1, // 1-indexed for editors
+                            },
+                        );
                     }
                 }
             }
@@ -53,57 +56,4 @@ pub async fn scan_markdown_for_feeds(zet_path: &str) -> Result<Vec<FeedSource>> 
     }
 
     Ok(feeds.into_values().collect())
-}
-
-pub async fn discover_feeds_from_domains(zet_path: &str) -> Result<Vec<String>> {
-    use std::collections::HashSet;
-    let domain_regex = Regex::new(r"https?://([^/\s]+)")?;
-    let mut domains = HashSet::new();
-    let mut discovered_feeds = Vec::new();
-
-    for entry in WalkDir::new(zet_path)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "md"))
-    {
-        let content = fs::read_to_string(entry.path())?;
-        for cap in domain_regex.captures_iter(&content) {
-            if let Some(domain) = cap.get(1) {
-                domains.insert(domain.as_str().to_string());
-            }
-        }
-    }
-
-    for domain in domains {
-        let potential_feeds = vec![
-            format!("https://{}/feed", domain),
-            format!("https://{}/rss", domain),
-            format!("https://{}/feed.xml", domain),
-            format!("https://{}/rss.xml", domain),
-            format!("https://{}/atom.xml", domain),
-            format!("https://{}/index.xml", domain),
-        ];
-
-        for feed_url in potential_feeds {
-            if check_feed_exists(&feed_url).await {
-                discovered_feeds.push(feed_url);
-                break;
-            }
-        }
-    }
-
-    Ok(discovered_feeds)
-}
-
-async fn check_feed_exists(url: &str) -> bool {
-    match reqwest::Client::new()
-        .head(url)
-        .timeout(std::time::Duration::from_secs(5))
-        .send()
-        .await
-    {
-        Ok(response) => response.status().is_success(),
-        Err(_) => false,
-    }
 }

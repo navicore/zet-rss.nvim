@@ -1,12 +1,11 @@
-mod scanner;
-mod fetcher;
 mod cache;
+mod fetcher;
 mod models;
+mod scanner;
 mod viewer;
 
-use clap::{Parser, Subcommand};
 use anyhow::Result;
-use tracing_subscriber;
+use clap::{Parser, Subcommand};
 use futures::stream::{self, StreamExt};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
@@ -92,7 +91,11 @@ async fn main() -> Result<()> {
             // Arc is necessary here to share the cache safely across async tasks
             let cache = Arc::new(cache);
 
-            println!("Fetching {} feeds (up to {} concurrently)...", feeds.len(), MAX_CONCURRENT_FETCHES);
+            println!(
+                "Fetching {} feeds (up to {} concurrently)...",
+                feeds.len(),
+                MAX_CONCURRENT_FETCHES
+            );
 
             let fetch_tasks = feeds.into_iter().map(|feed| {
                 let sem = semaphore.clone();

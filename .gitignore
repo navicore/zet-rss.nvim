@@ -1,5 +1,6 @@
 # Rust build artifacts
 /target/
+.claude/
 Cargo.lock
 
 # Compiled binary (built on user's machine)

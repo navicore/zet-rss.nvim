@@ -5,8 +5,7 @@ use tempfile::TempDir;
 
 fn create_test_cache() -> (TextCache, TempDir) {
     let temp_dir = TempDir::new().unwrap();
-    std::env::set_var("ZETRSS_DATA_DIR", temp_dir.path().to_str().unwrap());
-    let cache = TextCache::new().unwrap();
+    let cache = TextCache::with_base_dir(temp_dir.path().to_path_buf()).unwrap();
     (cache, temp_dir)
 }
 
