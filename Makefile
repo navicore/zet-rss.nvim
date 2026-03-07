@@ -8,9 +8,9 @@ install: build
 
 build:
 	@echo "Building ZetRss..."
-	@cargo build --release --quiet 2>/dev/null || cargo build --release
-	@mkdir -p $(INSTALL_DIR)
-	@cp target/release/$(BINARY_NAME) $(INSTALL_DIR)/
+	cargo build --release
+	mkdir -p $(INSTALL_DIR)
+	cp target/release/$(BINARY_NAME) $(INSTALL_DIR)/
 	@echo "Binary installed to $(INSTALL_DIR)/"
 
 clean:

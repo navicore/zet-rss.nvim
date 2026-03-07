@@ -28,7 +28,7 @@ This project and repo was formerly named `navireader`
 {
   "navicore/zet-rss.nvim",
   dependencies = { "nvim-telescope/telescope.nvim" },
-  build = "cargo build --release && mkdir -p lua/zetrss/bin && cp target/release/zetrss lua/zetrss/bin/",
+  build = "./build.sh",
   lazy = false,  -- IMPORTANT: Required for commands to register properly
   config = function()
     require("zetrss").setup({
