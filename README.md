@@ -1,3 +1,8 @@
+<!-- ghmig:moved -->
+> **This repository has moved to [https://git.navicore.tech/navicore/zet-rss.nvim](https://git.navicore.tech/navicore/zet-rss.nvim).**
+>
+> The GitHub copy is archived and no longer maintained.
+
 # zet-rss.nvim
 
 A companion plugin to [zet.nvim](https://github.com/navicore/zet.nvim) that adds
